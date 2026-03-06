@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <path fill="#2563eb" d="M50 0C30 0 14 16 14 36c0 28 36 64 36 64s36-36 36-64c0-20-16-36-36-36z"/>
+  <circle cx="50" cy="36" r="16" fill="#ffffff" />
+  <text x="50" y="45" font-family="Arial, sans-serif" font-weight="bold" font-size="28" fill="#2563eb" text-anchor="middle">$</text>
+</svg>

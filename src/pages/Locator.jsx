@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react"; // Added useCallback
 import MapView from "../components/MapView";
 import SearchBar from "../components/SearchBar";
 import ATMCard from "../components/ATMCard";
@@ -10,11 +10,11 @@ function Locator() {
   const [locations, setLocations] = useState([]);
   const [filtered, setFiltered] = useState([]);
   const [userLocation, setUserLocation] = useState(null);
-  const [loading, setLoading] = useState(false); // New loading state
+  const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState("ALL");
 
-  const getNearbyData = async (lat, lng) => {
+  const getNearbyData = useCallback(async (lat, lng) => {
     setLoading(true);
     try {
       const data = await fetchATMs(lat, lng);
@@ -30,34 +30,33 @@ function Locator() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-const handleLocateUser = () => {
-  if (navigator.vibrate) navigator.vibrate(50);
-  
-  setLoading(true);
-  navigator.geolocation.getCurrentPosition(
-    (pos) => {
-      const coords = [pos.coords.latitude, pos.coords.longitude];
-      setUserLocation(coords);
-      getNearbyData(coords[0], coords[1]);
-    },
-    (err) => {
-      setLoading(false);
-      const msg = err.code === 1 ? "Location permission denied." : "GPS signal too weak.";
-      alert(msg);
-    },
-    { 
-      enableHighAccuracy: true, 
-      timeout: 15000,           
-      maximumAge: 0             
-    }
-  );
-};
+  const handleLocateUser = useCallback(() => {
+    if (navigator.vibrate) navigator.vibrate(50);
+    
+    setLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const coords = [pos.coords.latitude, pos.coords.longitude];
+        setUserLocation(coords);
+        getNearbyData(coords[0], coords[1]);
+      },
+      (err) => {
+        setLoading(false);
+        alert("Location access denied. Please search manually or enable GPS.");
+      },
+      { 
+        enableHighAccuracy: true, 
+        timeout: 15000, 
+        maximumAge: 0 
+      }
+    );
+  }, [getNearbyData]);
 
   useEffect(() => {
     handleLocateUser(); 
-  }, []);
+  }, [handleLocateUser]); // dependency is now stable thanks to useCallback
 
   useEffect(() => {
     let result = locations;

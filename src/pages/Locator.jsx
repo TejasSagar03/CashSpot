@@ -32,26 +32,31 @@ function Locator() {
     }
   };
 
-  const handleLocateUser = () => {
-    if (navigator.vibrate) navigator.vibrate(50);
-    
-    setLoading(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const coords = [pos.coords.latitude, pos.coords.longitude];
-        setUserLocation(coords);
-        getNearbyData(coords[0], coords[1]);
-      },
-      (err) => {
-        setLoading(false);
-        alert("Location access denied. Please search manually or enable GPS.");
-      },
-      { enableHighAccuracy: true, timeout: 10000 } // Accuracy & Timeout settings
-    );
-  };
+const handleLocateUser = () => {
+  if (navigator.vibrate) navigator.vibrate(50);
+  
+  setLoading(true);
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      const coords = [pos.coords.latitude, pos.coords.longitude];
+      setUserLocation(coords);
+      getNearbyData(coords[0], coords[1]);
+    },
+    (err) => {
+      setLoading(false);
+      const msg = err.code === 1 ? "Location permission denied." : "GPS signal too weak.";
+      alert(msg);
+    },
+    { 
+      enableHighAccuracy: true, 
+      timeout: 15000,           
+      maximumAge: 0             
+    }
+  );
+};
 
   useEffect(() => {
-    handleLocateUser(); // Auto-detect on mount
+    handleLocateUser(); 
   }, []);
 
   useEffect(() => {

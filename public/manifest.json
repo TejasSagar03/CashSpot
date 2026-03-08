@@ -1,9 +1,16 @@
 {
+  "short_name": "CashSpot",
+  "name": "CashSpot ATM & Bank Locator",
   "icons": [
     {
       "src": "favicon.svg",
       "sizes": "512x512",
-      "type": "image/svg+xml"
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
     }
-  ]
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#2563eb",
+  "background_color": "#ffffff"
 }

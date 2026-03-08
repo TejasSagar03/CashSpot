@@ -4,15 +4,15 @@ export async function fetchATMs(lat, lon) {
   // 1. Increased radius to 15000m (15km)
   // 2. Added node["amenity"="bank"] and way["amenity"="bank"]
   // 3. Used 'out center;' so we get a single lat/lng even if the bank is mapped as a whole building
-  const query = `
-    [out:json];
-    (
-      node["amenity"="atm"](around:15000,${lat},${lon});
-      node["amenity"="bank"](around:15000,${lat},${lon});
-      way["amenity"="bank"](around:15000,${lat},${lon});
-    );
-    out center;
-  `;
+// Add 'qt' (sort by distance) to the Overpass query for faster response
+const query = `
+  [out:json][timeout:25];
+  (
+    node["amenity"~"atm|bank"](around:10000,${lat},${lon});
+    way["amenity"~"atm|bank"](around:10000,${lat},${lon});
+  );
+  out center qt; 
+`;
 
   const url = "https://overpass-api.de/api/interpreter";
 

@@ -1,6 +1,7 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+@import url('https://fonts.cdnfonts.com/css/ndot-45');
 
 @layer base {
   body {
@@ -23,9 +24,14 @@ body {
   background: linear-gradient(135deg,#020617,#0f172a);
 }
 
-/* Smooth transitions */
+/* Update your existing global transition in index.css */
 * {
-  transition: all 0.2s ease-in-out;
+  transition: all 0.4s cubic-bezier(0.19, 1, 0.22, 1);
+}
+
+/* Subtle "Hardware" scale-down effect for all buttons when clicked */
+button:active {
+  transform: scale(0.96);
 }
 
 /* Glassmorphism cards */
@@ -85,4 +91,136 @@ body {
 .dark .leaflet-layer {
   filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
   transition: filter 0.5s ease-in-out;
+}
+
+/* ==========================================================
+   LEAFLET ROUTING MACHINE - NOTHING OS OVERRIDES
+   ========================================================== */
+
+/* 1. The Main Glass Container */
+.leaflet-routing-container {
+  background-color: rgba(255, 255, 255, 0.85) !important;
+  -webkit-backdrop-filter: blur(24px) !important; /* Safari support */
+  backdrop-filter: blur(24px) !important;
+  border: 1px solid rgba(0, 0, 0, 0.1) !important;
+  border-radius: 1.5rem !important; /* Matches your rounded-3xl cards */
+  box-shadow: 0 10px 40px rgba(0,0,0,0.12) !important;
+  font-family: inherit !important; /* Forces it to use your app's font */
+  color: #000 !important;
+  padding: 16px !important;
+  margin-bottom: 24px !important;
+  margin-right: 24px !important; /* Keeps it away from the edge */
+  width: 320px !important;
+  transition: all 0.3s ease !important;
+}
+
+/* Dark Mode Main Container */
+.dark .leaflet-routing-container {
+  background-color: rgba(10, 10, 10, 0.85) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  color: #fff !important;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.5) !important;
+}
+
+/* 2. Scrollable Route Area */
+.leaflet-routing-alt {
+  max-height: 300px !important;
+  overflow-y: auto !important;
+  padding-right: 8px !important;
+}
+
+/* 3. The Headers (Destination & Distance) - DOT MATRIX APPLIED */
+.leaflet-routing-alt h2 {
+  font-family: 'ndot 45', sans-serif !important;
+  font-size: 22px !important;
+  font-weight: 400 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.15em !important;
+  margin-bottom: 16px !important;
+  border-bottom: 1px solid rgba(0,0,0,0.1) !important;
+  padding-bottom: 16px !important;
+  line-height: 1.2 !important;
+}
+
+.dark .leaflet-routing-alt h2 {
+  border-bottom: 1px solid rgba(255,255,255,0.1) !important;
+}
+
+/* Hide secondary redundant headers */
+.leaflet-routing-alt h3 {
+  display: none !important; 
+}
+
+/* 4. The Turn-by-Turn Instruction Table */
+.leaflet-routing-alt table {
+  border-collapse: collapse !important;
+  width: 100% !important;
+}
+
+.leaflet-routing-alt tr {
+  background: transparent !important;
+  border-bottom: 1px dashed rgba(0,0,0,0.1) !important;
+  transition: background-color 0.2s ease !important;
+}
+
+.dark .leaflet-routing-alt tr {
+  border-bottom: 1px dashed rgba(255,255,255,0.1) !important;
+}
+
+.leaflet-routing-alt tr:hover {
+  background: rgba(0, 0, 0, 0.05) !important;
+  cursor: pointer;
+}
+
+.dark .leaflet-routing-alt tr:hover {
+  background: rgba(255, 255, 255, 0.05) !important;
+}
+
+/* Base Instruction Text (Kept smooth for readability) */
+.leaflet-routing-alt td {
+  padding: 16px 8px !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  line-height: 1.5 !important;
+}
+
+/* DOT MATRIX APPLIED: Distances in Nothing Red */
+.leaflet-routing-alt td:last-child {
+  font-family: 'ndot 45', sans-serif !important;
+  font-size: 16px !important;
+  letter-spacing: 0.1em !important;
+  text-align: right !important;
+  white-space: nowrap !important;
+  padding-left: 16px !important;
+  color: #cc0000 !important; /* Deep red for light mode */
+}
+
+.dark .leaflet-routing-alt td:last-child {
+  color: #ff0000 !important; /* Pure neon red for dark mode */
+  text-shadow: 0 0 8px rgba(255, 0, 0, 0.4); /* Subtle LED glow effect */
+}
+
+/* 5. Force Icons into Monochrome (Nothing Style) */
+.leaflet-routing-icon {
+  filter: grayscale(100%) contrast(200%) !important;
+}
+
+/* Inverts icons for dark mode so they show up as white */
+.dark .leaflet-routing-icon {
+  filter: grayscale(100%) invert(100%) contrast(200%) !important;
+}
+
+/* 6. Custom Sleek Scrollbar */
+.leaflet-routing-alt::-webkit-scrollbar {
+  width: 4px;
+}
+.leaflet-routing-alt::-webkit-scrollbar-track {
+  background: transparent;
+}
+.leaflet-routing-alt::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 4px;
+}
+.dark .leaflet-routing-alt::-webkit-scrollbar-thumb {
+  background: #4b5563;
 }

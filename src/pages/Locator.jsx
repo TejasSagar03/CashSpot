@@ -15,6 +15,7 @@ function Locator() {
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState("ALL");
+  const [routeTarget, setRouteTarget] = useState(null); 
 
   const getNearbyData = useCallback(async (lat, lng) => {
     setLoading(true);
@@ -36,6 +37,15 @@ function Locator() {
 const handleLocateUser = useCallback(() => {
     if (navigator.vibrate) navigator.vibrate(50);
     setLoading(true);
+
+    // 1. Check if the browser even supports GPS
+    if (!navigator.geolocation) {
+      setLoading(false);
+      alert("Geolocation is not supported by your browser. Please use the search bar.");
+      return;
+    }
+
+    // 2. Attempt to get the real user's location
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const coords = [pos.coords.latitude, pos.coords.longitude];
@@ -44,18 +54,20 @@ const handleLocateUser = useCallback(() => {
       },
       (err) => {
         setLoading(false);
-        // Smarter error handling based on the exact reason it failed
+        // 3. PRODUCTION FIX: No fake locations. Just tell them to search manually.
         if (err.code === 1) {
-          alert("Permission Denied: Please click the lock icon in your address bar and 'Allow' location access for CashSpot.");
+          // They clicked "Deny"
+          alert("Location access denied. Please use the Search Bar to enter your city or neighborhood manually.");
         } else if (err.code === 3) {
-          alert("Timeout: GPS signal is too weak. Try standing near a window or search manually.");
+          // GPS Timed out
+          alert("GPS signal is too weak. Please use the Search Bar to enter your location manually.");
         } else {
-          alert("Location Error: Please ensure your device's GPS hardware is turned on.");
+          // Unknown hardware error
+          alert("Unable to pinpoint your device. Please use the Search Bar manually.");
         }
       },
-      // Note: On a desktop PC without GPS hardware, 'enableHighAccuracy' can sometimes cause timeouts. 
-      // If you are testing on a desktop and it keeps timing out, try changing this to 'false'.
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+      // enableHighAccuracy: false ensures it doesn't crash desktop browsers
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 0 }
     );
   }, [getNearbyData]);
 
@@ -75,16 +87,15 @@ const handleLocateUser = useCallback(() => {
     setFiltered(result);
   }, [search, activeFilter, locations]);
 
-return (
+  return (
     <AnimatedPage>
-      {/* Removed the bottom padding since nav is at the top now */}
       <div className="relative h-screen w-full overflow-hidden bg-white dark:bg-black font-sans">
         
         <div className="absolute inset-0 z-0">
-          <MapView locations={filtered} userLocation={userLocation} />
+          {/* MapView handles everything internally now */}
+          <MapView locations={filtered} userLocation={userLocation} routeTarget={routeTarget} />
         </div>
 
-        {/* Increased top padding (pt-28) to safely clear the new top-centered nav bar */}
         <div className="absolute top-0 left-0 z-10 w-full md:w-[440px] h-full flex flex-col pointer-events-none px-4 pt-28 pb-6 md:px-6 md:pt-32">
           
           <div className="pointer-events-auto flex flex-col gap-4 mb-4 p-5 bg-white/90 dark:bg-[#0a0a0a]/90 backdrop-blur-xl rounded-3xl border border-gray-200 dark:border-gray-800 shadow-xl transition-colors">
@@ -104,7 +115,7 @@ return (
             </div>
             
             <div className="p-4 flex flex-col gap-3 overflow-y-auto flex-1">
-              {filtered.map(loc => <ATMCard key={loc.id} loc={loc} />)}
+              {filtered.map(loc => <ATMCard key={loc.id} loc={loc} setRouteTarget={setRouteTarget} />)}
               {!loading && filtered.length === 0 && (
                 <div className="text-center p-8 text-gray-500 text-sm font-medium">
                   No operational units found in current view. Adjust filters or scan a new area.

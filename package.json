@@ -13,6 +13,7 @@
     "fuse.js": "^7.1.0",
     "leaflet": "^1.9.4",
     "leaflet-rotatedmarker": "^0.2.0",
+    "leaflet-routing-machine": "^3.2.12",
     "leaflet.markercluster": "^1.5.3",
     "next-themes": "^0.4.6",
     "react": "^19.2.4",

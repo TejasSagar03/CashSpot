@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import MapView from "../components/MapView";
 import SearchBar from "../components/SearchBar";
 import ATMCard from "../components/ATMCard";
@@ -17,10 +17,13 @@ function Locator() {
   const [activeFilter, setActiveFilter] = useState("ALL");
   const [routeTarget, setRouteTarget] = useState(null); 
 
+  const hasFetchedInitialData = useRef(false);
+
   const getNearbyData = useCallback(async (lat, lng) => {
     setLoading(true);
     try {
       const data = await fetchATMs(lat, lng);
+      // Still calculate initial distances so the first render looks good
       const withDistance = data.map(loc => ({
         ...loc,
         distance: calculateDistance(lat, lng, loc.lat, loc.lng)
@@ -34,65 +37,82 @@ function Locator() {
     }
   }, []);
 
-const handleLocateUser = useCallback(() => {
-    if (navigator.vibrate) navigator.vibrate(50);
-    setLoading(true);
-
-    // 1. Check if the browser even supports GPS
+  const handleLocateUser = useCallback(() => {
     if (!navigator.geolocation) {
-      setLoading(false);
-      alert("Geolocation is not supported by your browser. Please use the search bar.");
+      alert("Geolocation is not supported by your browser.");
       return;
     }
 
-    // 2. Attempt to get the real user's location
-    navigator.geolocation.getCurrentPosition(
+    setLoading(!hasFetchedInitialData.current);
+
+    const watchId = navigator.geolocation.watchPosition(
       (pos) => {
         const coords = [pos.coords.latitude, pos.coords.longitude];
         setUserLocation(coords);
-        getNearbyData(coords[0], coords[1]);
+
+        if (!hasFetchedInitialData.current) {
+          getNearbyData(coords[0], coords[1]);
+          hasFetchedInitialData.current = true;
+        }
       },
       (err) => {
         setLoading(false);
-        // 3. PRODUCTION FIX: No fake locations. Just tell them to search manually.
         if (err.code === 1) {
-          // They clicked "Deny"
-          alert("Location access denied. Please use the Search Bar to enter your city or neighborhood manually.");
+          alert("Location access denied. Please use the Search Bar manually.");
         } else if (err.code === 3) {
-          // GPS Timed out
-          alert("GPS signal is too weak. Please use the Search Bar to enter your location manually.");
-        } else {
-          // Unknown hardware error
-          alert("Unable to pinpoint your device. Please use the Search Bar manually.");
+          console.warn("GPS timeout - waiting for stronger signal...");
         }
       },
-      // enableHighAccuracy: false ensures it doesn't crash desktop browsers
-      { enableHighAccuracy: false, timeout: 10000, maximumAge: 0 }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 } 
     );
+
+    return () => navigator.geolocation.clearWatch(watchId);
   }, [getNearbyData]);
 
-  useEffect(() => { handleLocateUser(); }, [handleLocateUser]);
-
   useEffect(() => {
-    let result = locations;
+    const cleanup = handleLocateUser();
+    return cleanup;
+  }, [handleLocateUser]);
+
+  // LIVE DISTANCE & FILTERING ENGINE
+  useEffect(() => {
+    if (!userLocation || locations.length === 0) return;
+
+    // 1. Recalculate distance dynamically on every footstep
+    let result = locations.map(loc => {
+      const targetLng = loc.lng || loc.lon;
+      return {
+        ...loc,
+        distance: calculateDistance(userLocation[0], userLocation[1], loc.lat, targetLng)
+      };
+    });
+
+    // 2. Apply active filters
     if (activeFilter !== "ALL") {
       result = result.filter(loc => loc.type?.toLowerCase() === activeFilter.toLowerCase());
     }
+
+    // 3. Apply search query
     if (search) {
       const s = search.toLowerCase();
       result = result.filter(loc => 
-        loc.name.toLowerCase().includes(s) || loc.bank.toLowerCase().includes(s) || loc.type?.toLowerCase().includes(s)
+        (loc.name && loc.name.toLowerCase().includes(s)) || 
+        (loc.bank && loc.bank.toLowerCase().includes(s)) || 
+        (loc.type && loc.type.toLowerCase().includes(s))
       );
     }
+
+    // 4. Re-sort the list so the ATM you walk closest to is instantly pushed to the top
+    result.sort((a, b) => a.distance - b.distance);
+
     setFiltered(result);
-  }, [search, activeFilter, locations]);
+  }, [search, activeFilter, locations, userLocation]); // Listens to userLocation to trigger live math
 
   return (
     <AnimatedPage>
       <div className="relative h-screen w-full overflow-hidden bg-white dark:bg-black font-sans">
         
         <div className="absolute inset-0 z-0">
-          {/* MapView handles everything internally now */}
           <MapView locations={filtered} userLocation={userLocation} routeTarget={routeTarget} />
         </div>
 
@@ -125,7 +145,7 @@ const handleLocateUser = useCallback(() => {
 
             <div className="p-4 border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-[#050505] shrink-0 font-mono text-[10px] uppercase text-gray-400 tracking-widest flex flex-col gap-1">
               <p className="flex justify-between"><span>Source:</span> <span className="text-black dark:text-white">OSM Overpass API</span></p>
-              <p className="flex justify-between"><span>GPS Hardware:</span> <span className="text-green-500">Active</span></p>
+              <p className="flex justify-between"><span>GPS Hardware:</span> <span className="text-green-500">Live Telemetry</span></p>
               <p className="flex justify-between"><span>Radius Lock:</span> <span className="text-black dark:text-white">15.00 KM</span></p>
             </div>
           </div>

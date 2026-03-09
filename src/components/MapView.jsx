@@ -1,11 +1,10 @@
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import MarkerClusterGroup from "react-leaflet-cluster";
 import L from "leaflet";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import "leaflet-routing-machine";
 import "leaflet-routing-machine/dist/leaflet-routing-machine.css";
 
-// 1. Icons
 const atmIcon = new L.Icon({
   iconUrl: "https://cdn-icons-png.flaticon.com/512/2830/2830284.png",
   iconSize: [36, 36],
@@ -19,96 +18,97 @@ const userIcon = new L.Icon({
 });
 
 function MapView({ locations, userLocation, routeTarget }) {
-  // We capture the raw map instance here, completely bypassing the buggy Context API
   const [map, setMap] = useState(null);
-  const [routingControl, setRoutingControl] = useState(null);
+  const [initialCenter, setInitialCenter] = useState(false);
+  
+  // NEW: Holds the routing engine instance to update it dynamically without lag
+  const routingControlRef = useRef(null);
 
-  // Auto-fly to user location when map loads
+  // Center the map on the user ONLY on the very first load so they can still pan freely
   useEffect(() => {
-    if (map && userLocation) {
-      map.flyTo(userLocation, 14, { duration: 1.5 });
+    if (map && userLocation && !initialCenter) {
+      map.setView(userLocation, 15);
+      setInitialCenter(true);
     }
-  }, [map, userLocation]);
+  }, [map, userLocation, initialCenter]);
 
-  // Handle the Routing Engine natively
+  // LIVE ROUTING ENGINE
   useEffect(() => {
-    if (!map || !userLocation || !routeTarget) return;
-
-    if (routingControl) {
-      try { map.removeControl(routingControl); } catch(e) {}
+    if (!map || !userLocation || !routeTarget) {
+      if (routingControlRef.current) {
+        map.removeControl(routingControlRef.current);
+        routingControlRef.current = null;
+      }
+      return;
     }
 
     const targetLat = routeTarget.lat;
     const targetLng = routeTarget.lng || routeTarget.lon;
-    const isDark = document.documentElement.classList.contains('dark');
-    
-    // DOT MATRIX LED STYLE: Nothing Hardware Red
-    const lineColor = isDark ? '#ff0000' : '#cc0000';
+    const startLatLng = L.latLng(userLocation[0], userLocation[1]);
+    const endLatLng = L.latLng(targetLat, targetLng);
 
-    const newRoutingControl = L.Routing.control({
-      waypoints: [
-        L.latLng(userLocation[0], userLocation[1]),
-        L.latLng(targetLat, targetLng)
-      ],
-      lineOptions: {
-        // dashArray '4, 14' creates perfect circular dots instead of long dashes
-        styles: [{ color: lineColor, weight: 6, opacity: 1, dashArray: '4, 14', lineCap: 'round' }] 
-      },
-      show: true, 
-      addWaypoints: false,
-      routeWhileDragging: false,
-      fitSelectedRoutes: true,
-      createMarker: () => null, 
-      showAlternatives: false,
-      position: 'topright' // Panel safely moves to the top right to avoid UI overlap
-    }).addTo(map);
+    // If the route doesn't exist yet, build the UI panel and the line
+    if (!routingControlRef.current) {
+      const isDark = document.documentElement.classList.contains('dark');
+      const lineColor = isDark ? '#ff0000' : '#cc0000';
 
-    setRoutingControl(newRoutingControl);
+      routingControlRef.current = L.Routing.control({
+        waypoints: [startLatLng, endLatLng],
+        lineOptions: {
+          styles: [{ color: lineColor, weight: 6, opacity: 1, dashArray: '4, 14', lineCap: 'round' }] 
+        },
+        show: true, 
+        addWaypoints: false,
+        routeWhileDragging: false,
+        fitSelectedRoutes: true,
+        createMarker: () => null, 
+        showAlternatives: false,
+        position: 'topright' 
+      }).addTo(map);
+    } else {
+      // If the panel exists, JUST UPDATE THE WAYPOINTS live as they walk!
+      routingControlRef.current.setWaypoints([startLatLng, endLatLng]);
+    }
 
-    return () => {
-      if (newRoutingControl && map) {
-        try { map.removeControl(newRoutingControl); } catch(e) {}
-      }
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [map, routeTarget]); 
+  }, [map, routeTarget, userLocation]); // Listens for every footstep to update the red line
 
-  // Custom Control Handlers directly using the map state
+  // Custom Controls
   const handleZoomIn = () => map?.zoomIn();
   const handleZoomOut = () => map?.zoomOut();
   const handleLocateMe = () => {
-    if (map && userLocation) map.flyTo(userLocation, 15, { duration: 1.5 });
+    if (navigator.vibrate) navigator.vibrate(50);
+    if (map && userLocation) map.flyTo(userLocation, 16, { duration: 1.5 });
   };
 
   return (
     <div className="relative h-full w-full z-0">
       
-      {/* CUSTOM CONTROLS: Pulled outside the MapContainer so they can't throw errors */}
+      {/* Custom Locate & Zoom Controls */}
       <div className="absolute bottom-6 right-6 z-[400] flex flex-col gap-3 pointer-events-auto">
-        <button onClick={handleLocateMe} className="w-12 h-12 bg-white dark:bg-[#0a0a0a] text-black dark:text-white rounded-full shadow-lg flex items-center justify-center hover:scale-105 transition-all border border-gray-200 dark:border-gray-800">
+        <button onClick={handleLocateMe} className="w-12 h-12 bg-white dark:bg-[#0a0a0a] text-black dark:text-white rounded-full shadow-lg flex items-center justify-center hover:scale-[0.96] transition-all border border-gray-200 dark:border-gray-800">
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 12m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v2M12 19v2M3 12h2M19 12h2" /></svg>
         </button>
 
         <div className="bg-white dark:bg-[#0a0a0a] rounded-[1.5rem] shadow-lg border border-gray-200 dark:border-gray-800 flex flex-col overflow-hidden">
-          <button onClick={handleZoomIn} className="w-12 h-12 text-black dark:text-white flex items-center justify-center hover:bg-gray-100 dark:hover:bg-white/10 transition-colors border-b border-gray-200 dark:border-gray-800">
+          <button onClick={handleZoomIn} className="w-12 h-12 text-black dark:text-white flex items-center justify-center hover:bg-gray-100 dark:hover:bg-white/10 active:scale-95 transition-all border-b border-gray-200 dark:border-gray-800">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
           </button>
-          <button onClick={handleZoomOut} className="w-12 h-12 text-black dark:text-white flex items-center justify-center hover:bg-gray-100 dark:hover:bg-white/10 transition-colors">
+          <button onClick={handleZoomOut} className="w-12 h-12 text-black dark:text-white flex items-center justify-center hover:bg-gray-100 dark:hover:bg-white/10 active:scale-95 transition-all">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" /></svg>
           </button>
         </div>
       </div>
 
-      {/* MAIN MAP */}
       <MapContainer
-        center={userLocation || [13.1986, 77.7066]}
+        center={[13.1986, 77.7066]} // Will instantly jump to user on mount
         zoom={13}
         zoomControl={false} 
         className="h-full w-full absolute inset-0 z-0"
-        ref={setMap} /* THIS REF GRABS THE MAP SECURELY */
+        ref={setMap} 
       >
         <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
         
+        {/* User's marker now visually glides across the screen as their GPS updates! */}
         {userLocation && (
           <Marker position={userLocation} icon={userIcon}>
             <Popup className="font-bold">You are here</Popup>

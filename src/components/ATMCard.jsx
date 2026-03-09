@@ -10,6 +10,14 @@ function ATMCard({ loc, setRouteTarget }) {
   const mapLng = loc.lng || loc.lon; 
   const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${mapLat},${mapLng}`;
 
+// REVERTED: Strict, professional kilometer formatting (e.g., 0.01 km)
+  const formatDistance = (meters) => {
+    if (meters === undefined || meters === null) return "0.00 km";
+    
+    // Converts meters to km and strictly locks it to 2 decimal places
+    return `${(meters / 1000).toFixed(2)} km`; 
+  };
+
   return (
     <div 
       onClick={() => setIsExpanded(!isExpanded)}
@@ -35,13 +43,13 @@ function ATMCard({ loc, setRouteTarget }) {
           </div>
         </div>
         
-        {/* Distance Pill */}
-        <div className="px-3 py-1.5 rounded-full border border-gray-200 dark:border-gray-700 text-xs font-semibold text-black dark:text-white whitespace-nowrap bg-gray-50 dark:bg-black">
-          {(loc.distance / 1000).toFixed(2)} km
+        {/* FIXED: Dynamic Distance Pill with Nothing OS typography */}
+        <div className="px-3 py-1.5 rounded-full border border-gray-200 dark:border-gray-700 text-xs font-semibold text-black dark:text-white whitespace-nowrap bg-gray-50 dark:bg-black font-['ndot_45'] tracking-widest">
+          {formatDistance(loc.distance)}
         </div>
       </div>
 
-      {/* FIXED: Bulletproof Max-Height transition instead of buggy Grid trick */}
+      {/* Bulletproof Max-Height transition */}
       <div 
         className={`overflow-hidden transition-all duration-300 ease-in-out w-full ${
           isExpanded ? 'max-h-[200px] opacity-100 mt-4' : 'max-h-0 opacity-0 mt-0'

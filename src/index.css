@@ -2,6 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  body {
+    /* Forces the brutalist font globally */
+    font-family: 'Space Grotesk', sans-serif;
+  }
+}
+
 /* Global Font */
 body {
   font-family: 'Inter', sans-serif;
@@ -40,4 +47,42 @@ body {
   0% { transform: scale(1); }
   50% { transform: scale(1.2); }
   100% { transform: scale(1); }
+}
+
+/* BRUTALIST MAP CONTROLS OVERRIDE */
+.leaflet-bar {
+  border: 2px solid black !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
+.leaflet-bar a {
+  background-color: white !important;
+  color: black !important;
+  border-bottom: 2px solid black !important;
+  border-radius: 0 !important;
+  font-family: 'Space Mono', monospace !important;
+  font-weight: 700 !important;
+}
+.leaflet-bar a:hover {
+  background-color: black !important;
+  color: white !important;
+}
+.dark .leaflet-bar { border-color: #374151 !important; }
+.dark .leaflet-bar a { background-color: black !important; color: white !important; border-bottom-color: #374151 !important; }
+.dark .leaflet-bar a:hover { background-color: white !important; color: black !important; }
+.leaflet-control-zoom-in, .leaflet-control-zoom-out {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* TRUE DARK MODE MAP CAPABILITY */
+.dark .leaflet-container {
+  background: #0a0a0a !important; /* Darkens the void behind the map */
+}
+
+/* Inverts the map colors and fixes the hue so water is still blue */
+.dark .leaflet-layer {
+  filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
+  transition: filter 0.5s ease-in-out;
 }

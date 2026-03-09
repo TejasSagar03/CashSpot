@@ -1,59 +1,70 @@
-import GlassCard from "../components/GlassCard";
-import GradientButton from "../components/GradientButton";
-import { Link } from "react-router-dom";
+import SchematicGlobeSVG from "../components/SchematicGlobeSVG";
+import AnimatedPage from "../components/AnimatedPage"; 
 
 function About() {
+  const categories = [
+    { title: "System Architecture", desc: "Built on React, TailwindCSS, and Framer Motion for liquid transitions." },
+    { title: "Data Sourcing", desc: "Live queries via OpenStreetMap's Overpass API for real-time ATM data." },
+    { title: "GPS Telemetry", desc: "Utilizes navigator.geolocation with enableHighAccuracy for pinpoint routing." },
+    { title: "UI/UX Schematics", desc: "Monochromatic adaptive theme inspired by flagship industrial hardware." },
+    { title: "Deployment Specs", desc: "Automated CI/CD pipeline hosted on Vercel's edge network." },
+    { title: "Privacy Metrics", desc: "Zero tracking. Location data is strictly client-side and volatile." }
+  ];
+
+  const faqs = [
+    { q: "Why is my location inaccurate?", a: "Ensure your browser has location permissions granted and that you are not connected to a VPN, which routes your IP to a different geographical grid." },
+    { q: "How often is the data updated?", a: "CashSpot pulls directly from OSM (OpenStreetMap). Edits made by the global mapping community reflect here almost instantly." },
+    { q: "Does this work offline?", a: "No. CashSpot requires an active network connection to ping the API and render map tile data." }
+  ];
+
   return (
-    <div className="min-h-[calc(100vh-68px)] bg-gray-50 dark:bg-gray-900 py-12 px-6 transition-colors duration-300 relative overflow-hidden flex items-center justify-center">
-      
-      {/* Decorative Background Glows */}
-      <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-blue-400 rounded-full mix-blend-multiply filter blur-[100px] opacity-30 dark:opacity-20 pointer-events-none"></div>
-      <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-indigo-400 rounded-full mix-blend-multiply filter blur-[100px] opacity-30 dark:opacity-20 pointer-events-none"></div>
-
-      <div className="max-w-5xl w-full relative z-10">
+    <AnimatedPage>
+      <div className="relative min-h-screen flex flex-col items-center overflow-y-auto overflow-x-hidden bg-white dark:bg-black font-sans pb-32">
         
-        {/* Header Section */}
-        <div className="text-center mb-16">
-          <h1 className="text-4xl md:text-6xl font-black text-gray-900 dark:text-white tracking-tight mb-6">
-            About <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">CashSpot</span>
+        <div className="absolute top-0 w-full h-screen flex items-center justify-center pointer-events-none fixed">
+          <SchematicGlobeSVG className="w-[1000px] h-[1000px] md:w-[1400px] md:h-[1400px] text-black dark:text-white opacity-[0.03] dark:opacity-[0.05] animate-[spin_120s_linear_infinite]" />
+        </div>
+
+        {/* HEADER */}
+        <div className="relative z-10 w-full max-w-[1000px] px-6 pt-24 pb-12 flex flex-col items-center text-center">
+          <h1 className="text-5xl md:text-6xl font-semibold text-black dark:text-white tracking-tight mb-8">
+            Support Centre
           </h1>
-          <p className="text-lg md:text-xl text-gray-600 dark:text-gray-400 font-medium max-w-2xl mx-auto">
-            A modern, lightning-fast locator built to make finding nearby cash points and banking services completely effortless.
-          </p>
+          <div className="w-full max-w-[600px] flex items-center bg-white dark:bg-[#0a0a0a] border border-gray-200 dark:border-gray-800 rounded-full overflow-hidden focus-within:border-black dark:focus-within:border-gray-500 shadow-sm transition-colors">
+            <input 
+              type="text" 
+              placeholder="Search documentation..." 
+              className="w-full bg-transparent px-6 py-4 text-black dark:text-white placeholder-gray-400 dark:placeholder-gray-500 font-medium outline-none text-sm md:text-base"
+            />
+            <button className="h-full px-6 text-black dark:text-white font-semibold hover:opacity-70">Search</button>
+          </div>
         </div>
 
-        {/* Features Grid using your GlassCard component */}
-        <div className="grid md:grid-cols-2 gap-8">
-          <GlassCard>
-            <div className="w-14 h-14 bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 rounded-2xl flex items-center justify-center mb-6 shadow-sm">
-              <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" /></svg>
+        {/* TECHNICAL SPECIFICATIONS GRID */}
+        <div className="relative z-10 w-full max-w-[1200px] px-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-20">
+          {categories.map((cat, index) => (
+            <div key={index} className="group p-8 bg-white dark:bg-[#0a0a0a] border border-gray-200 dark:border-gray-800 rounded-3xl hover:border-black dark:hover:border-white transition-all duration-300 cursor-pointer">
+              <h3 className="text-lg font-semibold text-black dark:text-white mb-2">{cat.title}</h3>
+              <p className="text-sm font-medium text-gray-500 dark:text-gray-400 leading-relaxed">{cat.desc}</p>
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Smart Mapping</h2>
-            <p className="text-gray-600 dark:text-gray-300 leading-relaxed text-lg">
-              Utilizing OpenStreetMap and the Overpass API, we pull real-time, highly accurate data for ATMs and bank branches in a 15km radius around your exact location.
-            </p>
-          </GlassCard>
-
-          <GlassCard>
-            <div className="w-14 h-14 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 rounded-2xl flex items-center justify-center mb-6 shadow-sm">
-              <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-            </div>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Fast & Responsive</h2>
-            <p className="text-gray-600 dark:text-gray-300 leading-relaxed text-lg">
-              Built with React and Tailwind CSS, the interface is designed to be mobile-first, heavily interactive, and easy to use when you are on the go.
-            </p>
-          </GlassCard>
+          ))}
         </div>
 
-        {/* Call to Action using your GradientButton component */}
-        <div className="mt-16 flex justify-center">
-          <Link to="/locator">
-            <GradientButton text="Try the Locator Now" />
-          </Link>
+        {/* NEW: FAQ SECTION */}
+        <div className="relative z-10 w-full max-w-[800px] px-6 mb-12">
+          <h2 className="text-3xl font-semibold text-black dark:text-white mb-8 text-center">System FAQ</h2>
+          <div className="flex flex-col gap-4">
+            {faqs.map((faq, index) => (
+              <div key={index} className="p-6 bg-white dark:bg-[#0a0a0a] border border-gray-200 dark:border-gray-800 rounded-3xl">
+                <h4 className="font-semibold text-black dark:text-white mb-2">{faq.q}</h4>
+                <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">{faq.a}</p>
+              </div>
+            ))}
+          </div>
         </div>
 
       </div>
-    </div>
+    </AnimatedPage>
   );
 }
 

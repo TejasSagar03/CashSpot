@@ -1,28 +1,33 @@
 function Filters({ setFilter, activeFilter }) {
-  const filterOptions = [
+  const options = [
     { label: "All", value: "ALL" },
     { label: "ATMs", value: "atm" },
     { label: "Banks", value: "bank" }
   ];
 
   return (
-    <div className="flex p-1.5 bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700">
-      {filterOptions.map((btn) => (
-        <button
-          key={btn.value}
-          onClick={() => {
-            if (navigator.vibrate) navigator.vibrate(20);
-            setFilter(btn.value);
-          }}
-          className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 ${
-            activeFilter.toLowerCase() === btn.value.toLowerCase()
-              ? "bg-blue-600 text-white shadow-md transform scale-[1.02]"
-              : "bg-transparent text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-          }`}
-        >
-          {btn.label}
-        </button>
-      ))}
+    <div className="flex w-full gap-2">
+      {options.map((opt) => {
+        // Checking if the current pill is active
+        const isActive = activeFilter?.toLowerCase() === opt.value.toLowerCase() || 
+                        (activeFilter === "ALL" && opt.value === "ALL");
+                        
+        return (
+          <button
+            key={opt.value}
+            onClick={() => setFilter(opt.value)}
+            // Matched the exact classes from your NavBar for a seamless look
+            className={`
+              flex-1 py-3 px-4 rounded-2xl text-sm font-semibold transition-all duration-300
+              ${isActive 
+                ? 'bg-black/5 dark:bg-white/10 text-black dark:text-white' 
+                : 'text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10'}
+            `}
+          >
+            {opt.label}
+          </button>
+        )
+      })}
     </div>
   );
 }

@@ -37,10 +37,11 @@ function About() {
     <AnimatedPage>
       <div className="relative min-h-screen flex flex-col items-center overflow-y-auto overflow-x-hidden bg-white dark:bg-black font-sans pb-32">
         
-        {/* Background Schematic Decoration */}
-        <div className="absolute top-0 w-full h-screen flex items-center justify-center pointer-events-none fixed z-0">
-          <SchematicGlobeSVG className="w-[1000px] h-[1000px] md:w-[1400px] md:h-[1400px] text-black dark:text-white opacity-[0.03] dark:opacity-[0.05] animate-[spin_120s_linear_infinite]" />
+        {/* Background Globe - OPACITY FIXED HERE */}
+        <div className="absolute top-0 w-full h-screen flex items-center justify-center overflow-hidden pointer-events-none fixed">
+          <SchematicGlobeSVG className="w-[800px] h-[800px] md:w-[1200px] md:h-[1200px] text-black dark:text-white opacity-10 dark:opacity-20 animate-[spin_120s_linear_infinite]" />
         </div>
+
 
         {/* Header Section */}
         <div className="relative z-10 w-full max-w-[1000px] px-6 pt-28 pb-12 flex flex-col items-center text-center">

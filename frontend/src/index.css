@@ -1,0 +1,288 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300&display=swap');
+@import url('https://fonts.cdnfonts.com/css/ndot-45');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html, body {
+    font-family: 'Space Grotesk', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* ==========================================================
+   NATIVE APP RESET (Scroll-Safe, Anti-Bounce & Linter-Clean)
+   ========================================================== */
+html {
+  scroll-behavior: smooth;
+}
+
+html, body {
+  /* 1. Prevents the annoying double-tap-to-zoom on mobile UI */
+  touch-action: manipulation;
+  
+  /* 2. Stop the "pull-to-refresh" rubber-band bounce effect (CRITICAL FOR NATIVE FEEL) */
+  overscroll-behavior-y: none;
+  
+  /* 3. Stop users from accidentally highlighting text while swiping */
+  -webkit-user-select: none;
+  user-select: none;
+  
+  /* 4. Removes the blue/gray flash when tapping a button on mobile */
+  -webkit-tap-highlight-color: transparent;
+  
+  /* 5. Handle the notch/safe areas on modern edge-to-edge phones */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  
+  /* CRITICAL SCROLL FIX: Allow normal block scrolling */
+  width: 100%;
+  height: auto; 
+  min-height: 100dvh;
+  
+  margin: 0;
+  transition: background-color 0.5s ease-in-out; 
+}
+
+/* Ensure the React root can actually expand to allow scrolling */
+#root {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+
+/* Allow text selection ONLY on specific inputs like your Search Bar */
+input, textarea {
+  -webkit-user-select: auto;
+  user-select: auto;
+}
+
+/* Hide the MAIN body scrollbar to look like an app, but KEEP component scrollbars */
+body::-webkit-scrollbar {
+  display: none;
+}
+body {
+  -ms-overflow-style: none; 
+  scrollbar-width: none; 
+}
+
+/* ==========================================================
+   CUSTOM UI SCROLLBARS (Restored for your Active Grid)
+   ========================================================== */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+  margin-block: 8px; /* Adds padding to top and bottom of scrollbar */
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(156, 163, 175, 0.4);
+  border-radius: 10px;
+}
+.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(156, 163, 175, 0.2);
+}
+
+/* GPU Hardware Acceleration */
+.glass, .backdrop-blur-xl, .backdrop-blur-2xl {
+  will-change: transform, backdrop-filter;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  transform: translateZ(0);
+}
+
+.leaflet-container {
+  will-change: transform;
+}
+
+/* ==========================================================
+   BRUTALIST MAP CONTROLS OVERRIDE
+   ========================================================== */
+.leaflet-bar {
+  border: 2px solid black !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
+.leaflet-bar a {
+  background-color: white !important;
+  color: black !important;
+  border-bottom: 2px solid black !important;
+  border-radius: 0 !important;
+  font-family: 'Space Mono', monospace !important;
+  font-weight: 700 !important;
+  transition: all 0.2s ease !important;
+}
+.leaflet-bar a:hover {
+  background-color: black !important;
+  color: white !important;
+}
+.dark .leaflet-bar { border-color: #374151 !important; }
+.dark .leaflet-bar a { background-color: black !important; color: white !important; border-bottom-color: #374151 !important; }
+.dark .leaflet-bar a:hover { background-color: white !important; color: black !important; }
+
+.dark .leaflet-layer {
+  filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
+  transition: filter 0.5s ease-in-out;
+}
+
+/* ==========================================================
+   LEAFLET ROUTING & POPUPS (Nothing OS Style Glass)
+   ========================================================== */
+.leaflet-routing-container {
+  background-color: rgba(255, 255, 255, 0.85) !important;
+  -webkit-backdrop-filter: blur(24px) !important;
+  backdrop-filter: blur(24px) !important;
+  border: 1px solid rgba(0, 0, 0, 0.1) !important;
+  border-radius: 1.5rem !important; 
+  box-shadow: 0 15px 50px rgba(0,0,0,0.15) !important;
+  font-family: inherit !important; 
+  color: #000 !important;
+  padding: 20px !important; 
+  margin-bottom: 24px !important;
+  margin-right: 24px !important; 
+  width: 360px !important; 
+  transition: all 0.3s cubic-bezier(0.19, 1, 0.22, 1) !important;
+}
+
+.dark .leaflet-routing-container {
+  background-color: rgba(10, 10, 10, 0.85) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  color: #fff !important;
+  box-shadow: 0 15px 50px rgba(0,0,0,0.5) !important;
+}
+
+.custom-target-header {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 26px !important;
+  font-weight: 800 !important;
+  color: #000;
+  margin: 0 0 6px 0 !important;
+  padding: 0 !important;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  text-transform: capitalize;
+}
+.dark .custom-target-header { color: #fff; }
+
+.leaflet-routing-alt h2 {
+  font-family: 'ndot 45', sans-serif !important;
+  font-size: 13px !important; 
+  font-weight: 400 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.15em !important;
+  margin-bottom: 20px !important;
+  border-bottom: 1px solid rgba(0,0,0,0.1) !important;
+  padding-bottom: 16px !important;
+  color: #6b7280 !important; 
+}
+.dark .leaflet-routing-alt h2 {
+  border-bottom-color: rgba(255,255,255,0.1) !important;
+  color: #9ca3af !important;
+}
+
+.leaflet-routing-alt h3 { display: none !important; } 
+
+.leaflet-routing-alt {
+  max-height: 360px !important;
+  overflow-y: auto !important;
+  padding-right: 12px !important; 
+}
+
+.leaflet-routing-alt table { 
+  border-collapse: separate !important; 
+  border-spacing: 0 8px !important; 
+  width: 100% !important; 
+}
+
+.leaflet-routing-alt tr {
+  background: rgba(0, 0, 0, 0.03) !important; 
+  transition: all 0.2s cubic-bezier(0.19, 1, 0.22, 1) !important;
+}
+
+.dark .leaflet-routing-alt tr { 
+  background: rgba(255, 255, 255, 0.03) !important; 
+}
+
+.leaflet-routing-alt td:first-child { border-radius: 12px 0 0 12px !important; }
+.leaflet-routing-alt td:last-child { border-radius: 0 12px 12px 0 !important; }
+
+.leaflet-routing-alt tr:hover { 
+  background: rgba(0, 0, 0, 0.06) !important; 
+  cursor: pointer; 
+  transform: scale(1.02);
+}
+.dark .leaflet-routing-alt tr:hover { 
+  background: rgba(255, 255, 255, 0.08) !important; 
+}
+
+.leaflet-routing-alt td { 
+  padding: 14px 10px !important; 
+  vertical-align: middle !important;
+}
+
+.leaflet-routing-alt td:nth-child(2) {
+  font-size: 14px !important; 
+  font-weight: 600 !important; 
+  line-height: 1.4 !important;
+  color: #1f2937 !important;
+}
+.dark .leaflet-routing-alt td:nth-child(2) { color: #f3f4f6 !important; }
+
+.leaflet-routing-alt td:last-child {
+  font-family: 'ndot 45', sans-serif !important;
+  font-size: 15px !important;
+  letter-spacing: 0.1em !important;
+  text-align: right !important;
+  white-space: nowrap !important; 
+  padding-left: 12px !important;
+  color: #cc0000 !important; 
+}
+.dark .leaflet-routing-alt td:last-child { 
+  color: #ff0000 !important; 
+  text-shadow: 0 0 8px rgba(255, 0, 0, 0.4); 
+}
+
+.leaflet-routing-icon { 
+  filter: grayscale(100%) contrast(150%) opacity(0.8) !important; 
+}
+.dark .leaflet-routing-icon { 
+  filter: grayscale(100%) invert(100%) contrast(150%) opacity(0.9) !important; 
+}
+
+/* Custom Sleek Scrollbar for the Leaflet Routing Steps (Restored) */
+.leaflet-routing-alt::-webkit-scrollbar { width: 4px; }
+.leaflet-routing-alt::-webkit-scrollbar-track { background: transparent; margin-block: 4px; }
+.leaflet-routing-alt::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2); border-radius: 4px; }
+.dark .leaflet-routing-alt::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); }
+
+/* Custom Nothing OS Popups */
+.nothing-popup .leaflet-popup-content-wrapper {
+  background: rgba(255, 255, 255, 0.85) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  backdrop-filter: blur(16px) !important;
+  border-radius: 1.25rem !important;
+  border: 1px solid rgba(0,0,0,0.1) !important;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.1) !important;
+}
+.dark .nothing-popup .leaflet-popup-content-wrapper {
+  background: rgba(10, 10, 10, 0.85) !important;
+  border: 1px solid rgba(255,255,255,0.1) !important;
+}
+.dark .nothing-popup .leaflet-popup-content h3 { color: white !important; }
+.dark .nothing-popup .leaflet-popup-content p { color: #a1a1aa !important; }
+.nothing-popup .leaflet-popup-tip-container { display: none !important; }
+
+/* ==========================================================
+   TACTICAL STEALTH MODE (Night Vision Override)
+   ========================================================== */
+.stealth-active {
+  /* Shifts the entire display into a high-contrast tactical red/amber */
+  filter: sepia(100%) hue-rotate(320deg) saturate(300%) contrast(120%) brightness(70%) !important;
+  transition: filter 1s ease-in-out;
+  background-color: #000 !important;
+}

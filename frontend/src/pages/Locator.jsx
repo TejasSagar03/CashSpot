@@ -502,7 +502,26 @@ function Locator() {
 
           <div className="px-6 py-4 flex items-center justify-between shrink-0">
             <h2 className="text-[1.1rem] font-bold text-black dark:text-white tracking-tight">Active Grid</h2>
-            {loading && <SchematicLoaderSVG className="w-5 h-5" />}
+            
+            <div className="flex items-center gap-3">
+              {loading && <SchematicLoaderSVG className="w-5 h-5" />}
+              
+              {/* TACTICAL MANUAL REFRESH BUTTON */}
+              <button 
+                onClick={() => {
+                  if (userLocation && navigator.vibrate) navigator.vibrate(15);
+                  if (userLocation) getNearbyData(userLocation[0], userLocation[1]);
+                }}
+                disabled={loading}
+                className="w-8 h-8 rounded-full border border-gray-200 dark:border-gray-800 flex items-center justify-center text-gray-400 hover:text-black dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#111] transition-all cursor-pointer active:scale-90 disabled:opacity-30 group"
+                title="Force Radar Rescan"
+              >
+                <svg className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              </button>
+            </div>
+            
           </div>
             
           <motion.div layoutScroll onPointerDown={(e) => e.stopPropagation()} className="flex-1 overflow-y-auto px-4 pb-8 custom-scrollbar">

@@ -41,4 +41,4 @@ To run the CashSpot interface on your local hardware:
 
 1. **Clone the repository:**
    ```bash
-   git clone [https://github.com/YOUR_GITHUB_USERNAME/CashSpot.git](https://github.com/YOUR_GITHUB_USERNAME/CashSpot.git)
+   git clone [https://github.com/TejasSagar03/CashSpot.git](https://github.com/TejasSagar03/CashSpot.git)

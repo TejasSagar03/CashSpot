@@ -1,7 +1,7 @@
 # 🔴 CASH_SPOT // NODE_UPLINK
 
-[![Live Demo](https://img.shields.io/badge/Live_System-Vercel-black?style=for-the-badge&logo=vercel)](https://cash-spot.vercel.app)
-[![Status](https://img.shields.io/badge/Status-System_Live-ff0031?style=for-the-badge)](#)
+[![Live Demo](https://img.shields.io/badge/Live_System-Vercel-20232a?style=flat&logo=vercel&logoColor=white)](https://cash-spot.vercel.app)
+[![Status](https://img.shields.io/badge/Status-System_Live-ff0031?style=flat)](#)
 
 > **Identity confirmed. System is ready for localized extraction.**
 
@@ -20,18 +20,19 @@ CashSpot is a tactical, geolocation-based utility web application. Designed with
 
 ## 🛠️ TECH_STACK
 
-**Frontend (Interface)**
-*   React.js
-*   Tailwind CSS (Brutalist/Hardware-style implementation)
-*   Framer Motion (High-fidelity spring & gesture animations)
+**Frontend (Interface)**<br>
+![React](https://img.shields.io/badge/React-20232a?style=flat&logo=react&logoColor=61DAFB)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-20232a?style=flat&logo=tailwind-css&logoColor=38B2AC)
+![Framer Motion](https://img.shields.io/badge/Framer_Motion-20232a?style=flat&logo=framer&logoColor=white)
 
-**Backend & Data (Core)**
-*   Node.js & Express (Backend API Architecture)
-*   MongoDB (Primary Data Persistence & Spatial Queries)
-*   Firebase Authentication (Secure Operator Login/Signup)
+**Backend & Data (Core)**<br>
+![Node.js](https://img.shields.io/badge/Node.js-20232a?style=flat&logo=node.js&logoColor=339933)
+![Express.js](https://img.shields.io/badge/Express.js-20232a?style=flat&logo=express&logoColor=white)
+![MongoDB](https://img.shields.io/badge/MongoDB-20232a?style=flat&logo=mongodb&logoColor=47A248)
+![Firebase](https://img.shields.io/badge/Firebase-20232a?style=flat&logo=firebase&logoColor=FFCA28)
 
-**Deployment**
-*   Vercel
+**Deployment**<br>
+![Vercel](https://img.shields.io/badge/Vercel-20232a?style=flat&logo=vercel&logoColor=white)
 
 ---
 
@@ -40,5 +41,6 @@ CashSpot is a tactical, geolocation-based utility web application. Designed with
 To run the CashSpot interface on your local hardware:
 
 1. **Clone the repository:**
-   ```bash
+   
+```bash
    git clone [https://github.com/TejasSagar03/CashSpot.git](https://github.com/TejasSagar03/CashSpot.git)

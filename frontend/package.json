@@ -12,6 +12,7 @@
     "firebase": "^12.12.1",
     "framer-motion": "^12.35.1",
     "fuse.js": "^7.1.0",
+    "html2canvas": "^1.4.1",
     "jspdf": "^4.2.1",
     "leaflet": "^1.9.4",
     "leaflet-rotatedmarker": "^0.2.0",

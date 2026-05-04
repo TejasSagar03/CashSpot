@@ -6,6 +6,7 @@ import { doc, onSnapshot, setDoc } from "firebase/firestore";
 import { auth, db } from "../firebase"; 
 import AnimatedPage from "../components/AnimatedPage";
 import { jsPDF } from "jspdf"; 
+import html2canvas from "html2canvas";
 import IntelManual from "../components/IntelManual"; 
 
 const fileToDataUrl = (file) => {
@@ -20,6 +21,7 @@ const fileToDataUrl = (file) => {
 export default function Profile({ user, openSettings }) {
   const navigate = useNavigate();
   const [stats, setStats] = useState({ savedSpots: 0 });
+  const [savedSpotsList, setSavedSpotsList] = useState([]);
   
   const [repPoints, setRepPoints] = useState(0);
   const [intelAccuracy, setIntelAccuracy] = useState(100);
@@ -28,6 +30,7 @@ export default function Profile({ user, openSettings }) {
   
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [showAccountSettings, setShowAccountSettings] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [newPassword, setNewPassword] = useState("");
@@ -78,8 +81,10 @@ export default function Profile({ user, openSettings }) {
       const dataStr = localStorage.getItem('cashspot_saved_spots');
       const spots = dataStr ? JSON.parse(dataStr) : [];
       setStats({ savedSpots: spots.length });
+      setSavedSpotsList(spots);
     } catch (error) {
       setStats({ savedSpots: 0 });
+      setSavedSpotsList([]);
     }
   }, []);
 
@@ -173,25 +178,35 @@ export default function Profile({ user, openSettings }) {
     }
   };
 
-  const handleExportData = () => {
+  const handleExportData = async () => {
+    setIsExporting(true);
     try {
-      const dataStr = localStorage.getItem('cashspot_saved_spots') || "[]";
-      const spots = JSON.parse(dataStr);
-      const doc = new jsPDF();
-      doc.setFontSize(22);
-      doc.text("CashSpot Node Dossier", 20, 25);
-      doc.setFontSize(10);
-      doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 20, 35);
-      if (spots.length === 0) {
-        doc.text("No hardware nodes currently pinned in cache.", 20, 60);
-      } else {
-        spots.forEach((spot, index) => {
-          doc.text(`Node ${index + 1}: ${spot.name || 'Unnamed Location'}`, 20, 60 + (index * 20));
-        });
-      }
-      doc.save(`CashSpot_Dossier.pdf`);
+      await document.fonts.ready; 
+
+      const template = document.getElementById("pdf-template");
+      
+      const canvas = await html2canvas(template, {
+        scale: 2, 
+        backgroundColor: "#000000",
+        useCORS: true,
+        logging: false,
+        windowWidth: 800, 
+      });
+
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF("p", "mm", "a4");
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+
+      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`CS_TACTICAL_LOG_${displayName.toUpperCase()}.pdf`);
+      
+      showAlert("SUCCESS", "Tactical log encrypted and downloaded.");
     } catch (error) {
-      showAlert("ERROR", "Failed to compile PDF dossier.");
+      console.error(error);
+      showAlert("ERROR", "PDF Compilation Failed: Intel Corrupted.");
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -234,18 +249,83 @@ export default function Profile({ user, openSettings }) {
 
   return (
     <AnimatedPage>
+      
+      {/* --- BULLETPROOF HIDDEN PDF TEMPLATE (REFINED SIZES) --- */}
+      <div style={{ position: "absolute", left: "-9999px", top: "-9999px" }}>
+        <div id="pdf-template" className="bg-[#000000] text-white p-12 w-[800px] min-h-[1123px] block">
+          
+          {/* 1. CENTERED BRANDING HEADER */}
+          <div className="flex flex-col items-center justify-center border-b-2 border-dashed border-[#222] pb-8 mb-8 text-center mt-2">
+            <div className="flex items-center gap-3 mb-3">
+              {/* Scaled down to 3.5rem */}
+              <h1 style={{ fontFamily: "'ndot 45', sans-serif" }} className="text-[3.5rem] leading-none tracking-[0.1em] uppercase m-0 text-white">CashSpot</h1>
+              <div className="w-3.5 h-3.5 rounded-full bg-[#ff3b30] mb-1"></div>
+            </div>
+            <p className="text-[#666] font-mono tracking-[0.4em] text-xs uppercase">{"Field Log // Data Extraction"}</p>
+          </div>
+
+          {/* 2. OPERATOR INTEL BAR (NEW ROW) */}
+          <div className="flex justify-between items-center bg-[#0a0a0a] p-6 rounded-2xl border-2 border-[#1a1a1a] mb-12 shadow-lg">
+            <div className="flex flex-col text-left">
+              <span className="text-[#666] font-mono text-[10px] tracking-[0.2em] uppercase mb-1">{"// Operator ID"}</span>
+              <span className="font-black text-xl tracking-widest uppercase text-white">{displayName}</span>
+            </div>
+            <div className="flex flex-col items-center px-8 border-x-2 border-[#1a1a1a]">
+              <span className="text-[#666] font-mono text-[10px] tracking-[0.2em] uppercase mb-1">{"// Clearance"}</span>
+              <span className="text-[#ff3b30] text-lg font-bold tracking-widest uppercase">{currentRank.title}</span>
+            </div>
+            <div className="flex flex-col text-right">
+              <span className="text-[#666] font-mono text-[10px] tracking-[0.2em] uppercase mb-1">{"// Timestamp"}</span>
+              <span className="text-white font-mono text-sm tracking-widest uppercase">{new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+            </div>
+          </div>
+
+          {/* 3. HARDWARE NODES LIST (BREATHING ROOM) */}
+          <div className="space-y-6">
+            {savedSpotsList.length === 0 ? (
+              <p style={{ fontFamily: "'ndot 45', sans-serif" }} className="text-center text-[#ff3b30] mt-24 tracking-[0.2em] text-xl uppercase">{"[ ! ] ZERO HARDWARE NODES IN LOCAL CACHE"}</p>
+            ) : (
+              savedSpotsList.map((spot, index) => (
+                <div key={index} className="bg-[#0a0a0a] border-2 border-[#1a1a1a] rounded-[1.25rem] p-6 flex justify-between items-center w-full">
+                  <div className="w-[70%]">
+                    <span className="text-[10px] text-[#ff3b30] font-mono tracking-[0.2em] uppercase mb-2 block">{`[NODE_0${index + 1}]`}</span>
+                    {/* Scaled title down to 1.5rem to prevent cramping */}
+                    <h3 style={{ fontFamily: "'ndot 45', sans-serif" }} className="text-2xl leading-tight text-white uppercase break-words mb-2">{(spot.bank || spot.name || "TERMINAL")}</h3>
+                    <p className="text-[#666] text-xs font-mono tracking-widest mt-1">COORD_LAT: {spot.lat.toFixed(6)} {"//"} COORD_LNG: {(spot.lng || spot.lon).toFixed(6)}</p>
+                  </div>
+                  <div className="bg-[#111] px-5 py-3 rounded-xl border border-[#222] text-center min-w-[120px]">
+                    <div className="text-[9px] tracking-[0.3em] uppercase text-[#666] font-mono mb-1.5">{"Status"}</div>
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="w-2.5 h-2.5 rounded-full bg-white shadow-[0_0_10px_rgba(255,255,255,0.5)]"></div>
+                      <span style={{ fontFamily: "'ndot 45', sans-serif" }} className="text-xs tracking-widest uppercase text-white mt-0.5">{"Active"}</span>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* 4. FOOTER */}
+          <div className="mt-16 pt-8 border-t-2 border-dashed border-[#222] text-center">
+            <p className="text-[10px] text-[#444] font-mono tracking-[0.3em] uppercase">{"CS_ENGINE_V3 // END_OF_LOG // ZERO-G MODE COMPATIBLE"}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* --- MAIN PAGE UI --- */}
       <div className="min-h-[100dvh] w-full bg-[#f4f4f5] dark:bg-[#000000] transition-colors duration-500 font-sans pt-24 pb-12 px-4 md:px-8">
         <div className="max-w-[900px] mx-auto flex flex-col gap-6 relative">
           
           <button 
-  onClick={() => navigate(-1)} // This goes back to the PREVIOUS page (Home, About, or Locator)
-  className="w-10 h-10 flex items-center justify-center bg-white dark:bg-[#0a0a0a] border border-gray-200 dark:border-[#1a1a1a] rounded-full shadow-sm hover:bg-gray-50 dark:hover:bg-[#111] transition-colors self-start mb-[-8px] cursor-pointer"
-  title="Go Back"
->
-  <svg className="w-5 h-5 text-black dark:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-  </svg>
-</button>
+            onClick={() => navigate(-1)} 
+            className="w-10 h-10 flex items-center justify-center bg-white dark:bg-[#0a0a0a] border border-gray-200 dark:border-[#1a1a1a] rounded-full shadow-sm hover:bg-gray-50 dark:hover:bg-[#111] transition-colors self-start mb-[-8px] cursor-pointer"
+            title="Go Back"
+          >
+            <svg className="w-5 h-5 text-black dark:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+          </button>
+          
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white dark:bg-[#0a0a0a] rounded-[2rem] border border-gray-200 dark:border-[#1a1a1a] shadow-sm overflow-hidden">
             <div 
               style={{
@@ -484,12 +564,16 @@ export default function Profile({ user, openSettings }) {
                     </button>
                   )}
 
-                  <button type="button" onClick={handleExportData} className="w-full flex items-center justify-between p-4 bg-white dark:bg-[#0a0a0a] border border-gray-200 dark:border-gray-800 rounded-xl hover:border-gray-300 dark:hover:border-gray-600 transition-colors text-left group cursor-pointer">
+                  <button type="button" onClick={handleExportData} disabled={isExporting} className="w-full flex items-center justify-between p-4 bg-white dark:bg-[#0a0a0a] border border-gray-200 dark:border-gray-800 rounded-xl hover:border-gray-300 dark:hover:border-gray-600 transition-colors text-left group cursor-pointer disabled:opacity-50">
                     <div className="flex flex-col pointer-events-none">
-                      <span className="text-sm font-bold text-black dark:text-white">Export Data</span>
+                      <span className="text-sm font-bold text-black dark:text-white">{isExporting ? "Compiling Intel..." : "Export Data"}</span>
                       <span className="text-xs text-gray-500 mt-0.5">Download your saved locations as PDF.</span>
                     </div>
-                    <svg className="w-5 h-5 text-gray-400 group-hover:text-black dark:group-hover:text-white transition-colors pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                    {isExporting ? (
+                      <span className="animate-spin h-5 w-5 border-2 border-gray-400 border-t-transparent rounded-full"></span>
+                    ) : (
+                      <svg className="w-5 h-5 text-gray-400 group-hover:text-black dark:group-hover:text-white transition-colors pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                    )}
                   </button>
 
                   <div className="w-full h-[1px] bg-gray-100 dark:bg-gray-900 my-4"></div>

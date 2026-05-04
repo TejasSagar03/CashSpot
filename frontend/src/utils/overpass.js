@@ -14,7 +14,7 @@ const query = `
   out center qt; 
 `;
 
-  const url = "https://overpass-api.de/api/interpreter";
+  const url = "/osm-api";
 
   try {
     const res = await axios.post(url, query, {

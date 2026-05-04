@@ -1,54 +1,52 @@
 import axios from "axios";
 
 export async function fetchATMs(lat, lon) {
-  // 1. Increased radius to 15000m (15km)
-  // 2. Added node["amenity"="bank"] and way["amenity"="bank"]
-  // 3. Used 'out center;' so we get a single lat/lng even if the bank is mapped as a whole building
-// Add 'qt' (sort by distance) to the Overpass query for faster response
-const query = `
-  [out:json][timeout:25];
-  (
-    node["amenity"~"atm|bank"](around:10000,${lat},${lon});
-    way["amenity"~"atm|bank"](around:10000,${lat},${lon});
-  );
-  out center qt; 
-`;
+  // 1. Read the saved radius from Settings, default to 6 if it doesn't exist
+  const savedRadiusKm = Number(localStorage.getItem("cashspot_radius")) || 6;
+  
+  // 2. Convert Kilometers to Meters for the API
+  const searchRadiusMeters = savedRadiusKm * 1000;
 
-  const url = "/osm-api";
+  // 3. Inject the dynamic variable into the Overpass query
+  const query = `
+    [out:json][timeout:15];
+    (
+      node["amenity"~"atm|bank"](around:${searchRadiusMeters},${lat},${lon});
+      way["amenity"~"atm|bank"](around:${searchRadiusMeters},${lat},${lon});
+    );
+    out center qt; 
+  `;
+
+  // The French mirror is currently the most stable for Vercel
+  const url = "https://overpass.openstreetmap.fr/api/interpreter";
 
   try {
+    // BEACON 1: Check if the coordinates and dynamic radius are actually firing
+    console.log(`📡 Scanning coordinates: ${lat}, ${lon} at radius: ${searchRadiusMeters}m`); 
+    
     const res = await axios.post(url, query, {
       headers: { "Content-Type": "text/plain" }
     });
 
+    // BEACON 2: Check how many ATMs the server actually found
+    console.log("🎯 Radar hits found:", res.data.elements.length); 
+
     return res.data.elements.map(el => {
-      // Smartly grab the name from various possible OSM tags
       const bankName = el.tags?.operator || el.tags?.brand || el.tags?.name || "Unknown Bank";
       const displayName = el.tags?.name || el.tags?.brand || (el.tags?.amenity === "bank" ? "Bank Branch" : "ATM");
 
       return {
         id: el.id,
         name: displayName,
-        // Use el.center for buildings (ways), el.lat/lon for points (nodes)
         lat: el.lat || el.center?.lat,
         lng: el.lon || el.center?.lon,
-        
         bank: bankName,
-        network: el.tags?.network || "ATM Network",
-        
-        address: 
-          (el.tags?.["addr:street"] || "") + 
-          " " + 
-          (el.tags?.["addr:city"] || ""),
-        
-        hours: el.tags?.opening_hours || "24 Hours",
-        cash: el.tags?.cash_in ? "Deposit Available" : "Withdrawal Only",
-        wheelchair: el.tags?.wheelchair || "Unknown",
-        type: el.tags?.amenity // This will store either "atm" or "bank"
+        type: el.tags?.amenity
       };
     });
   } catch (error) {
-    console.error("Failed to fetch map data:", error);
+    // BEACON 3: Catch any hidden errors
+    console.error("🔴 Overpass API Error:", error.message);
     return [];
   }
 }

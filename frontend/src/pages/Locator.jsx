@@ -29,6 +29,15 @@ function Locator() {
   const [isDesktop, setIsDesktop] = useState(true); 
   const [shareState, setShareState] = useState("HIDDEN"); 
 
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+
+  // --- NEW: SYSTEM DIALOG ENGINE ---
+  const [sysDialog, setSysDialog] = useState({ show: false, title: '', message: '', isError: false });
+  
+  const showDialog = useCallback((title, message, isError = false) => {
+    setSysDialog({ show: true, title, message, isError });
+  }, []);
+
   const lastActiveTarget = useRef(null);
   const hasFetchedInitialData = useRef(false);
 
@@ -55,7 +64,17 @@ function Locator() {
     stateRef.current = { filtered, locations, googleMode, savedLocations };
   }, [filtered, locations, googleMode, savedLocations]);
 
-  // ---> DYNAMIC BANK FILTER EXTRACTION <---
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
   const availableBanks = useMemo(() => {
     if (!locations || locations.length === 0) return [];
     const banks = new Set();
@@ -105,13 +124,13 @@ function Locator() {
             return [...newIntel, ...prev];
           });
           window.history.replaceState({}, document.title, window.location.pathname);
-          alert(`[SYSTEM] Successfully decoded and imported ${decodedIntel.length} tactical coordinates.`);
+          showDialog("INTEL IMPORTED", `Successfully decoded and secured ${decodedIntel.length} tactical coordinates.`);
         }
       } catch (e) {
         console.error("Payload corruption detected.", e);
       }
     }
-  }, []);
+  }, [showDialog]);
 
   useEffect(() => {
     localStorage.setItem('cashspot_saved_spots', JSON.stringify(savedLocations));
@@ -188,16 +207,32 @@ function Locator() {
   };
 
   const getNearbyData = useCallback(async (lat, lng) => {
+    if (!navigator.onLine) {
+      console.log("📡 [ZERO-G] System offline. Accessing encrypted local cache...");
+      const cachedData = JSON.parse(localStorage.getItem('cashspot_zero_g_cache') || '[]');
+      
+      const withDistance = cachedData.map(loc => ({
+        ...loc,
+        distance: calculateDistance(lat, lng, loc.lat, loc.lng || loc.lon)
+      })).sort((a, b) => a.distance - b.distance);
+      
+      setLocations(withDistance);
+      setFiltered(withDistance);
+      return;
+    }
+
     setLoading(true);
     try {
-      // Pull dynamic radius from settings
       const searchRadius = Number(localStorage.getItem("cashspot_radius")) * 1000 || 5000;
-      
       const data = await fetchATMs(lat, lng, searchRadius);
+      
+      localStorage.setItem('cashspot_zero_g_cache', JSON.stringify(data));
+
       const withDistance = data.map(loc => ({
         ...loc,
         distance: calculateDistance(lat, lng, loc.lat, loc.lng || loc.lon)
       })).sort((a, b) => a.distance - b.distance);
+      
       setLocations(withDistance);
       setFiltered(withDistance);
     } catch (err) { 
@@ -206,6 +241,30 @@ function Locator() {
       setLoading(false); 
     }
   }, []);
+
+  const handleDownloadSector = async () => {
+    if (!userLocation) {
+      showDialog("STANDBY", "Awaiting GPS Lock to define sector bounds.", true);
+      return;
+    }
+    if (!navigator.onLine) {
+      showDialog("NETWORK ERROR", "Cannot download sector while offline.", true);
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      const searchRadius = Number(localStorage.getItem("cashspot_radius")) * 1000 || 5000;
+      const data = await fetchATMs(userLocation[0], userLocation[1], searchRadius);
+      localStorage.setItem('cashspot_zero_g_cache', JSON.stringify(data));
+      if (navigator.vibrate) navigator.vibrate([30, 50, 30]);
+      showDialog("ZERO-G SECURED", `${data.length} hardware nodes downloaded to local memory. System ready for offline deployment.`);
+    } catch (err) {
+      showDialog("ERROR", "Failed to download sector data.", true);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!navigator.geolocation) return;
@@ -390,23 +449,34 @@ function Locator() {
     <AnimatedPage>
       <div className="relative h-[100dvh] w-full overflow-hidden bg-[#f8fafc] dark:bg-[#050505] font-sans transition-colors duration-500">
         
+        {/* --- ZERO-G (OFFLINE) ALERT BANNER --- */}
         <AnimatePresence>
-          {isCriticalPower && (
+          {isOffline && (
             <motion.div 
-              initial={{ y: -100, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: -100, opacity: 0 }}
+              initial={{ y: -100, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -100, opacity: 0 }}
+              transition={{ type: "spring", damping: 20, stiffness: 200 }}
+              className="absolute top-4 left-1/2 -translate-x-1/2 z-[200] w-[90%] max-w-[400px] bg-yellow-500/90 dark:bg-yellow-600/90 backdrop-blur-md text-black px-4 py-3 rounded-2xl flex items-center gap-3 shadow-[0_10px_30px_rgba(234,179,8,0.3)] border border-yellow-400/50"
+            >
+              <svg className="w-6 h-6 shrink-0 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M18.364 5.636a9 9 0 010 12.728m0 0l-2.829-2.829m2.829 2.829L21 21M15.536 8.464a5 5 0 010 7.072m0 0l-2.829-2.829m-4.243-2.829a4.978 4.978 0 011.415-1.414m-1.415 1.414L3 3m8.485 8.485C11.165 11.165 11 11.571 11 12c0 .552.224 1.052.586 1.414" /></svg>
+              <div className="flex flex-col">
+                <span className="text-[10px] font-bold uppercase tracking-widest leading-none mb-1">Zero-G Mode Active</span>
+                <span className="text-[9px] font-mono leading-none opacity-80">Network severed. Operating on cached local data.</span>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {isCriticalPower && !isOffline && (
+            <motion.div 
+              initial={{ y: -100, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -100, opacity: 0 }}
               transition={{ type: "spring", damping: 20, stiffness: 200 }}
               className="absolute top-4 left-1/2 -translate-x-1/2 z-[200] w-[90%] max-w-[400px] bg-red-500/90 dark:bg-red-600/90 backdrop-blur-md text-white px-4 py-3 rounded-2xl flex items-center gap-3 shadow-[0_10px_30px_rgba(239,68,68,0.3)] border border-red-400/50"
             >
               <div className="w-2 h-2 bg-white rounded-full animate-ping shrink-0"></div>
               <div className="flex flex-col">
-                <span className="text-[10px] font-bold uppercase tracking-widest leading-none mb-1">
-                  Low Power Mode Active ({level}%)
-                </span>
-                <span className="text-[9px] font-mono text-white/80 leading-none">
-                  Hardware sensors throttled to 5000ms
-                </span>
+                <span className="text-[10px] font-bold uppercase tracking-widest leading-none mb-1">Low Power Mode Active ({level}%)</span>
+                <span className="text-[9px] font-mono text-white/80 leading-none">Hardware sensors throttled to 5000ms</span>
               </div>
             </motion.div>
           )}
@@ -442,7 +512,7 @@ function Locator() {
                         <button onClick={() => {
                             navigator.clipboard.writeText(intelLink);
                             if (navigator.vibrate) navigator.vibrate([20, 50, 20]);
-                            alert("[SYSTEM] Link copied to clipboard.");
+                            showDialog("SYSTEM", "Link copied to clipboard.");
                             setShareState("HIDDEN");
                         }} className="w-full py-4 bg-green-500 text-black font-bold uppercase tracking-widest rounded-2xl hover:bg-green-400 active:scale-95 transition-all shadow-[0_0_20px_rgba(34,197,94,0.3)] cursor-pointer">
                             Copy Secure Link
@@ -503,10 +573,19 @@ function Locator() {
           <div className="px-6 py-4 flex items-center justify-between shrink-0">
             <h2 className="text-[1.1rem] font-bold text-black dark:text-white tracking-tight">Active Grid</h2>
             
-            <div className="flex items-center gap-3">
-              {loading && <SchematicLoaderSVG className="w-5 h-5" />}
+            <div className="flex items-center gap-2">
+              {loading && <SchematicLoaderSVG className="w-5 h-5 mr-1" />}
               
-              {/* TACTICAL MANUAL REFRESH BUTTON */}
+              <button 
+                onClick={handleDownloadSector}
+                disabled={loading || isOffline}
+                className="px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-800 flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-widest text-black dark:text-white hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black transition-all cursor-pointer active:scale-95 disabled:opacity-30"
+                title="Download sector for offline Zero-G Mode"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                D/L SECTOR
+              </button>
+
               <button 
                 onClick={() => {
                   if (userLocation && navigator.vibrate) navigator.vibrate(15);
@@ -541,7 +620,7 @@ function Locator() {
                           Pinned Destinations
                         </h3>
                         <button 
-                          onClick={() => savedLocations.length > 0 ? setShareState("MENU") : alert("Memory empty.")} 
+                          onClick={() => savedLocations.length > 0 ? setShareState("MENU") : showDialog("EMPTY", "Memory empty.", true)} 
                           className="text-[9px] font-bold border border-gray-300 dark:border-gray-700 px-3 py-1.5 rounded-lg hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black transition-colors uppercase tracking-widest cursor-pointer"
                         >
                           Share Intel
@@ -581,10 +660,17 @@ function Locator() {
           </motion.div>
 
           <div className="p-4 bg-gray-50/50 dark:bg-[#050505]/50 shrink-0 font-mono text-[10px] uppercase text-gray-400 tracking-widest flex flex-col gap-1 border-t border-gray-100 dark:border-gray-800/60 rounded-b-[2.5rem]">
-            <p className="flex justify-between"><span>Source:</span> <span className="text-black dark:text-white">OSM Overpass API</span></p>
+            <p className="flex justify-between">
+              <span>Source:</span> 
+              <span className={isOffline ? "text-yellow-500" : "text-black dark:text-white"}>
+                {isOffline ? "LOCAL ZERO-G CACHE" : "OSM Overpass API"}
+              </span>
+            </p>
             <p className="flex justify-between">
               <span>Hardware:</span> 
-              {isCriticalPower ? (
+              {isOffline ? (
+                <span className="text-yellow-500 font-bold">Offline / GPS Only</span>
+              ) : isCriticalPower ? (
                 <span className="text-red-500 font-bold animate-pulse">Power-Save ({level}%)</span>
               ) : (
                 <span className="text-green-500">Live Telemetry</span>
@@ -593,6 +679,45 @@ function Locator() {
           </div>
           
         </motion.div>
+
+        {/* --- 8. UNIFIED SYSTEM DIALOG OVERLAY --- */}
+        <AnimatePresence>
+          {sysDialog.show && (
+            <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
+              <motion.div 
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} 
+                className="absolute inset-0 bg-black/80 backdrop-blur-sm cursor-pointer" 
+                onClick={() => setSysDialog({ ...sysDialog, show: false })}
+              />
+              <motion.div 
+                initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0, y: 20 }} 
+                className="relative w-full max-w-sm bg-white dark:bg-[#0a0a0a] border-2 border-black dark:border-[#1a1a1a] rounded-[2rem] p-8 flex flex-col items-center text-center shadow-[0_0_50px_rgba(0,0,0,0.5)] z-10"
+              >
+                <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-6 border-4 shadow-lg ${sysDialog.isError ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-900/50 text-red-500' : 'bg-black dark:bg-white border-gray-300 dark:border-gray-800 text-white dark:text-black'}`}>
+                  {sysDialog.isError ? (
+                    <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                  ) : (
+                    <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
+                  )}
+                </div>
+
+                <h2 style={{ fontFamily: "'ndot 45', sans-serif" }} className={`text-xl tracking-widest uppercase mb-2 ${sysDialog.isError ? 'text-red-500' : 'text-black dark:text-white'}`}>
+                  {sysDialog.title}
+                </h2>
+                <p className="text-sm text-gray-500 font-mono uppercase leading-relaxed mb-8">
+                  {sysDialog.message}
+                </p>
+                
+                <button 
+                  onClick={() => setSysDialog({ ...sysDialog, show: false })} 
+                  className="w-full py-4 bg-black text-white dark:bg-white dark:text-black rounded-xl text-sm font-black uppercase tracking-widest hover:opacity-80 transition-opacity"
+                >
+                  Acknowledge
+                </button>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
 
       </div>
     </AnimatedPage>

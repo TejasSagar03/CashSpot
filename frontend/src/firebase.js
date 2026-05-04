@@ -1,7 +1,7 @@
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider, GithubAuthProvider } from "firebase/auth";
+import { getFirestore } from "firebase/firestore"; // <-- 1. IMPORT FIRESTORE
 
-// Your real CashSpot configuration
 const firebaseConfig = {
   apiKey: "AIzaSyDfU8eQaiA7a2OCIPJkA_WyIR2g3SegIVc",
   authDomain: "cashspot-b11af.firebaseapp.com",
@@ -15,4 +15,5 @@ const app = initializeApp(firebaseConfig);
 
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
-export const githubProvider = new GithubAuthProvider(); // <-- GITHUB ADDED!
+export const githubProvider = new GithubAuthProvider();
+export const db = getFirestore(app); // <-- 2. EXPORT THE DATABASE ('db')

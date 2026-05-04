@@ -1,6 +1,14 @@
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300&display=swap');
-@import url('https://fonts.cdnfonts.com/css/ndot-45');
+
+/* Self-Hosted Nothing OS Font */
+@font-face {
+  font-family: 'ndot 45';
+  src: url('./fonts/ndot-45.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
 
 @tailwind base;
 @tailwind components;

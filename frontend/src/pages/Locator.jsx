@@ -338,7 +338,7 @@ function Locator() {
           const lat = target.lat;
           const lng = target.lng || target.lon;
           setTimeout(() => {
-              window.location.href = `https://www.google.com/maps/dir/?api=1&destination=$${lat},${lng}&travelmode=${currentGoogleMode}`;
+              window.location.href = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=${currentGoogleMode}`;
           }, 1000); 
        } else {
           msg.text = speakCasually('nothing');

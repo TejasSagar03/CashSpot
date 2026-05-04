@@ -13,7 +13,7 @@ function ATMCard({ loc, setRouteTarget, setCompassTarget, travelMode = "walking"
     return `${(meters / 1000).toFixed(2)}KM`;
   };
 
-  const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=$${loc.lat},${loc.lng || loc.lon}&travelmode=${travelMode}`;
+  const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${loc.lat},${loc.lng || loc.lon}&travelmode=${travelMode}`;
 
   // Clean, high-contrast display states
   const statusConfig = {

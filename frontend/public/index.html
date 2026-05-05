@@ -2,27 +2,35 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
+    
+    <!-- Branding & Icons -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/apple-touch-icon.png" />
+    <title>CashSpot | Find ATMs and Banks</title>
+    
+    <!-- Typography -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;900&family=Silkscreen&display=swap" rel="stylesheet">
     
+    <!-- PWA Manifest -->
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
     
+    <!-- CRITICAL: The Ultimate Mobile Responsive Tag -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     
+    <!-- Dynamic Theme Colors for Mobile Browsers -->
     <meta name="theme-color" content="#050505" media="(prefers-color-scheme: dark)" />
     <meta name="theme-color" content="#f8fafc" media="(prefers-color-scheme: light)" />
 
+    <!-- Apple iOS Native App Capabilities -->
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="CashSpot" />
-    
-    <title>CashSpot | Find ATM's and Bank's</title>
   </head>
   <body>
     <noscript>System requires JavaScript to initialize.</noscript>
     <div id="root"></div>
 
+    <!-- Ghost Mode: Offline Service Worker -->
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {

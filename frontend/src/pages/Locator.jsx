@@ -449,6 +449,18 @@ function Locator() {
     <AnimatedPage>
       <div className="relative h-[100dvh] w-full overflow-hidden bg-[#f8fafc] dark:bg-[#050505] font-sans transition-colors duration-500">
         
+        {/* --- DYNAMIC MAP CONTROLS FIX (MOBILE UX UPGRADE) --- */}
+        <style>{`
+          @media (max-width: 768px) {
+            .leaflet-control-container .leaflet-bottom,
+            .leaflet-bottom.leaflet-right,
+            .mapboxgl-ctrl-bottom-right {
+              bottom: ${isMinimized ? '100px' : 'calc(65dvh + 15px)'} !important;
+              transition: bottom 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+            }
+          }
+        `}</style>
+
         {/* --- ZERO-G (OFFLINE) ALERT BANNER --- */}
         <AnimatePresence>
           {isOffline && (
@@ -541,9 +553,24 @@ function Locator() {
           )}
         </AnimatePresence>
 
+        {/* --- MOBILE: FLOATING TOP SEARCH HUD --- */}
+        <div className="md:hidden absolute top-[100px] left-4 right-4 z-[15] flex flex-col pointer-events-auto">
+          <div className="bg-white/95 dark:bg-[#0a0a0a]/95 backdrop-blur-xl rounded-3xl p-4 border border-gray-200 dark:border-gray-800 shadow-2xl">
+            <SearchBar 
+              search={search} setSearch={setSearch} 
+              autoStart={isListeningForFollowUp} onAutoStartDone={() => setIsListeningForFollowUp(false)}
+              onVoiceSearchEnd={(action) => setVoiceAction(action)} 
+            />
+            <div className="mt-3">
+              <Filters setFilter={setActiveFilter} activeFilter={activeFilter} availableBanks={availableBanks} />
+            </div>
+          </div>
+        </div>
+
+        {/* --- SIDEBAR / BOTTOM SHEET --- */}
         <motion.div 
           initial={false}
-          animate={{ y: isDesktop ? 0 : (isMinimized ? "calc(100% - 160px)" : 0) }}
+          animate={{ y: isDesktop ? 0 : (isMinimized ? "calc(100% - 85px)" : 0) }}
           transition={{ type: "spring", damping: 28, stiffness: 300 }}
           drag={isDesktop ? false : "y"}
           dragConstraints={{ top: 0, bottom: 0 }}
@@ -552,14 +579,15 @@ function Locator() {
             if (info.offset.y > 40) setIsMinimized(true);
             if (info.offset.y < -40) setIsMinimized(false);
           }}
-          className="absolute bottom-0 left-0 z-20 w-full h-[calc(100dvh-120px)] md:top-4 md:left-4 md:bottom-4 md:h-[calc(100dvh-32px)] md:w-[400px] flex flex-col bg-white/95 dark:bg-[#0a0a0a]/95 backdrop-blur-3xl rounded-t-[2.5rem] md:rounded-[2.5rem] md:border border-gray-200 dark:border-gray-800 shadow-[0_-15px_40px_rgba(0,0,0,0.1)] md:shadow-[0_15px_50px_rgba(0,0,0,0.15)] dark:shadow-[0_-15px_40px_rgba(0,0,0,0.5)] pointer-events-auto transition-colors duration-500 overflow-hidden"
+          className="absolute bottom-0 left-0 z-20 w-full h-[65dvh] md:top-4 md:left-4 md:bottom-4 md:h-[calc(100dvh-32px)] md:w-[400px] flex flex-col bg-white/95 dark:bg-[#0a0a0a]/95 backdrop-blur-3xl rounded-t-[2.5rem] md:rounded-[2.5rem] md:border border-gray-200 dark:border-gray-800 shadow-[0_-15px_40px_rgba(0,0,0,0.1)] md:shadow-[0_15px_50px_rgba(0,0,0,0.15)] dark:shadow-[0_-15px_40px_rgba(0,0,0,0.5)] pointer-events-auto transition-colors duration-500 overflow-hidden"
         >
           
-          <div className="w-full pt-5 pb-3 flex justify-center items-center shrink-0 md:hidden cursor-grab active:cursor-grabbing" onClick={() => setIsMinimized(!isMinimized)}>
+          <div className="w-full pt-4 pb-2 flex justify-center items-center shrink-0 md:hidden cursor-grab active:cursor-grabbing" onClick={() => setIsMinimized(!isMinimized)}>
             <div className="w-12 h-1.5 bg-gray-300 dark:bg-gray-700 rounded-full"></div>
           </div>
 
-          <div className="px-5 pt-2 pb-5 shrink-0 border-b border-gray-100 dark:border-gray-800/60" onPointerDown={(e) => { if(e.target.tagName.toLowerCase() === 'input') e.stopPropagation() }}>
+          {/* DESKTOP SEARCH & FILTERS (Hidden on Mobile) */}
+          <div className="hidden md:block px-5 pt-2 pb-5 shrink-0 border-b border-gray-100 dark:border-gray-800/60" onPointerDown={(e) => { if(e.target.tagName.toLowerCase() === 'input') e.stopPropagation() }}>
             <SearchBar 
               search={search} setSearch={setSearch} 
               autoStart={isListeningForFollowUp} onAutoStartDone={() => setIsListeningForFollowUp(false)}
@@ -570,7 +598,7 @@ function Locator() {
             </div>
           </div>
 
-          <div className="px-6 py-4 flex items-center justify-between shrink-0">
+          <div className="px-6 pb-4 md:py-4 flex items-center justify-between shrink-0">
             <h2 className="text-[1.1rem] font-bold text-black dark:text-white tracking-tight">Active Grid</h2>
             
             <div className="flex items-center gap-2">
@@ -680,7 +708,7 @@ function Locator() {
           
         </motion.div>
 
-        {/* --- 8. UNIFIED SYSTEM DIALOG OVERLAY --- */}
+        {/* --- UNIFIED SYSTEM DIALOG OVERLAY --- */}
         <AnimatePresence>
           {sysDialog.show && (
             <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">

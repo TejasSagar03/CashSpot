@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-function SearchBar({ search, setSearch, onVoiceSearchEnd, autoStart, onAutoStartDone }) {
+
+function SearchBar({ search, setSearch, onVoiceSearchEnd, autoStart, onAutoStartDone, placeholder }) {
   const [isListening, setIsListening] = useState(false);
   const [supported, setSupported] = useState(true);
   const recognitionRef = useRef(null);
@@ -36,8 +37,9 @@ function SearchBar({ search, setSearch, onVoiceSearchEnd, autoStart, onAutoStart
         const isCompass = /compass|locate|point|show me where|guide me/.test(transcript);
         const isRoute = /route|direction|map|take me|path/.test(transcript);
         
+        // Removed "hey gemini", replaced with system-appropriate wake words
         const cleanSearch = transcript
-          .replace(/hey gemini|could you|can you|please|now|immediately/g, "")
+          .replace(/hey cashspot|hey system|could you|can you|please|now|immediately/g, "")
           .replace(/switch to|show me|take me to|open the|guide me/g, "")
           .replace(/compass|directions|direction|route|map|locate/g, "")
           .replace(/the nearest|for the/g, "")
@@ -78,7 +80,8 @@ function SearchBar({ search, setSearch, onVoiceSearchEnd, autoStart, onAutoStart
     <div className={`w-full flex items-center bg-white dark:bg-[#0a0a0a] border ${isListening ? 'border-[#cc0000] dark:border-[#ff0000] shadow-[0_0_20px_rgba(204,0,0,0.2)]' : 'border-gray-200 dark:border-gray-800'} rounded-full p-1 transition-all duration-500`}>
       <input 
         type="text" 
-        placeholder={isListening ? "I'm listening..." : "Search or ask Gemini..."} 
+        // Dynamically uses the prop we passed from Locator.jsx, or falls back to a default
+        placeholder={isListening ? "Awaiting voice input..." : (placeholder || "Scan for active financial nodes...")} 
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         disabled={isListening}

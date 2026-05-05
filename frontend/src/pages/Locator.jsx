@@ -449,14 +449,15 @@ function Locator() {
     <AnimatedPage>
       <div className="relative h-[100dvh] w-full overflow-hidden bg-[#f8fafc] dark:bg-[#050505] font-sans transition-colors duration-500">
         
-        {/* --- DYNAMIC MAP CONTROLS FIX (MOBILE UX UPGRADE) --- */}
+        {/* --- DYNAMIC MAP CONTROLS FIX (GOOGLE MAPS STYLE UX) --- */}
         <style>{`
           @media (max-width: 768px) {
             .leaflet-control-container .leaflet-bottom,
-            .leaflet-bottom.leaflet-right,
-            .mapboxgl-ctrl-bottom-right {
-              bottom: ${isMinimized ? '100px' : 'calc(65dvh + 15px)'} !important;
-              transition: bottom 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+            .mapboxgl-ctrl-bottom-right,
+            .mapboxgl-ctrl-bottom-left {
+              /* Forces map controls to float securely above the bottom sheet */
+              bottom: 62dvh !important; 
+              transition: bottom 0.3s ease;
             }
           }
         `}</style>
@@ -554,8 +555,9 @@ function Locator() {
         </AnimatePresence>
 
         {/* --- MOBILE: FLOATING TOP SEARCH HUD --- */}
-        <div className="md:hidden absolute top-[100px] left-4 right-4 z-[15] flex flex-col pointer-events-auto">
-          <div className="bg-white/95 dark:bg-[#0a0a0a]/95 backdrop-blur-xl rounded-3xl p-4 border border-gray-200 dark:border-gray-800 shadow-2xl">
+        {/* Adjusted width to leave room for the right-side profile/settings buttons */}
+        <div className="md:hidden absolute top-[90px] left-4 w-[calc(100%-80px)] z-[500] flex flex-col pointer-events-auto">
+          <div className="bg-white/95 dark:bg-[#0a0a0a]/95 backdrop-blur-xl rounded-[2rem] p-4 border border-gray-200 dark:border-gray-800 shadow-2xl">
             <SearchBar 
               search={search} setSearch={setSearch} 
               autoStart={isListeningForFollowUp} onAutoStartDone={() => setIsListeningForFollowUp(false)}
@@ -570,7 +572,7 @@ function Locator() {
         {/* --- SIDEBAR / BOTTOM SHEET --- */}
         <motion.div 
           initial={false}
-          animate={{ y: isDesktop ? 0 : (isMinimized ? "calc(100% - 85px)" : 0) }}
+          animate={{ y: isDesktop ? 0 : (isMinimized ? "calc(100% - 75px)" : 0) }}
           transition={{ type: "spring", damping: 28, stiffness: 300 }}
           drag={isDesktop ? false : "y"}
           dragConstraints={{ top: 0, bottom: 0 }}
@@ -579,14 +581,15 @@ function Locator() {
             if (info.offset.y > 40) setIsMinimized(true);
             if (info.offset.y < -40) setIsMinimized(false);
           }}
-          className="absolute bottom-0 left-0 z-20 w-full h-[65dvh] md:top-4 md:left-4 md:bottom-4 md:h-[calc(100dvh-32px)] md:w-[400px] flex flex-col bg-white/95 dark:bg-[#0a0a0a]/95 backdrop-blur-3xl rounded-t-[2.5rem] md:rounded-[2.5rem] md:border border-gray-200 dark:border-gray-800 shadow-[0_-15px_40px_rgba(0,0,0,0.1)] md:shadow-[0_15px_50px_rgba(0,0,0,0.15)] dark:shadow-[0_-15px_40px_rgba(0,0,0,0.5)] pointer-events-auto transition-colors duration-500 overflow-hidden"
+          className="absolute bottom-0 left-0 z-[500] w-full h-[60dvh] md:top-4 md:left-4 md:bottom-4 md:h-[calc(100dvh-32px)] md:w-[400px] flex flex-col bg-white/95 dark:bg-[#0a0a0a]/95 backdrop-blur-3xl rounded-t-[2.5rem] md:rounded-[2.5rem] md:border border-gray-200 dark:border-gray-800 shadow-[0_-15px_40px_rgba(0,0,0,0.2)] dark:shadow-[0_-15px_40px_rgba(0,0,0,0.5)] md:shadow-[0_15px_50px_rgba(0,0,0,0.15)] pointer-events-auto transition-colors duration-500 overflow-hidden"
         >
           
+          {/* Mobile Drag Handle */}
           <div className="w-full pt-4 pb-2 flex justify-center items-center shrink-0 md:hidden cursor-grab active:cursor-grabbing" onClick={() => setIsMinimized(!isMinimized)}>
             <div className="w-12 h-1.5 bg-gray-300 dark:bg-gray-700 rounded-full"></div>
           </div>
 
-          {/* DESKTOP SEARCH & FILTERS (Hidden on Mobile) */}
+          {/* DESKTOP SEARCH & FILTERS (Hidden entirely on Mobile) */}
           <div className="hidden md:block px-5 pt-2 pb-5 shrink-0 border-b border-gray-100 dark:border-gray-800/60" onPointerDown={(e) => { if(e.target.tagName.toLowerCase() === 'input') e.stopPropagation() }}>
             <SearchBar 
               search={search} setSearch={setSearch} 
@@ -708,7 +711,7 @@ function Locator() {
           
         </motion.div>
 
-        {/* --- UNIFIED SYSTEM DIALOG OVERLAY --- */}
+        {/* --- 8. UNIFIED SYSTEM DIALOG OVERLAY --- */}
         <AnimatePresence>
           {sysDialog.show && (
             <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">

@@ -16,6 +16,7 @@ import { CheckCircle, X, RotateCcw } from "lucide-react";
 
 const fileToDataUrl = (file) => {
   return new Promise((resolve, reject) => {
+    if (!file) return reject(new Error("No file provided"));
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result);
     reader.onerror = (error) => reject(error);
@@ -46,7 +47,7 @@ export default function Profile({ user, openSettings }) {
   const showAlert = (title, message) => setSysDialog({ show: true, type: 'alert', title, message, onConfirm: null });
   const showConfirm = (title, message, onConfirmAction) => setSysDialog({ show: true, type: 'confirm', title, message, onConfirm: onConfirmAction });
   
-  // --- New Success Screen State ---
+  // --- Success Screen State ---
   const [successStatus, setSuccessStatus] = useState({ show: false, message: '' });
 
   // --- Input Refs ---
@@ -137,9 +138,14 @@ export default function Profile({ user, openSettings }) {
     setIsEditing(true);
   };
 
-  const onFileChange = async (event, type) => {
-    const file = event.target.files?.[0];
+  // --- FIXED: DOM-Direct File Extraction ---
+  const onFileChange = async (type) => {
+    // 1. Grab the file directly from the physical DOM node to bypass React Event limitations
+    const targetRef = type === 'banner' ? bannerInputRef : avatarInputRef;
+    const file = targetRef.current?.files?.[0];
+
     if (!file) return;
+
     try {
       const dataUrl = await fileToDataUrl(file);
       setCropState((prev) => ({
@@ -153,7 +159,10 @@ export default function Profile({ user, openSettings }) {
     } catch (error) {
       showAlert("ERROR", `Failed to process ${type} file.`);
     } finally {
-      event.target.value = ""; 
+      // 2. Reset the physical DOM node so you can upload the exact same file again if needed
+      if (targetRef.current) {
+         targetRef.current.value = ""; 
+      }
     }
   };
 
@@ -504,7 +513,8 @@ export default function Profile({ user, openSettings }) {
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                       Change Banner
                     </button>
-                    <input type="file" ref={bannerInputRef} accept="image/*" onChange={(e) => onFileChange(e, 'banner')} className="hidden" />
+                    {/* FIXED: onChange now safely calls onFileChange without passing the React synthetic event */}
+                    <input type="file" ref={bannerInputRef} accept="image/*" onChange={() => onFileChange('banner')} className="hidden" />
                   </div>
                 )}
               </div>
@@ -534,7 +544,8 @@ export default function Profile({ user, openSettings }) {
                         <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                       </div>
                     )}
-                    <input type="file" ref={avatarInputRef} accept="image/*" onChange={(e) => onFileChange(e, 'avatar')} className="hidden" />
+                    {/* FIXED: onChange now safely calls onFileChange without passing the React synthetic event */}
+                    <input type="file" ref={avatarInputRef} accept="image/*" onChange={() => onFileChange('avatar')} className="hidden" />
 
                     {!isEditing && (
                       <div className="absolute bottom-1 right-1 md:bottom-2 md:right-2 w-7 h-7 bg-blue-500 text-white rounded-full border-[3px] border-white dark:border-[#0a0a0a] z-20 flex items-center justify-center shadow-md">

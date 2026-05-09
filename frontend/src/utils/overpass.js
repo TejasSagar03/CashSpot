@@ -2,24 +2,27 @@ export async function fetchATMs(lat, lon) {
   const savedRadiusKm = Number(localStorage.getItem("cashspot_radius")) || 6;
   const searchRadiusMeters = savedRadiusKm * 1000;
 
-  // The precise query, perfectly spaced on a single line.
-  const query = `[out:json][timeout:15];(node["amenity"~"atm|bank"](around:${searchRadiusMeters},${lat},${lon});way["amenity"~"atm|bank"](around:${searchRadiusMeters},${lat},${lon}););out center qt;`;
-
   try {
-    console.log(`📡 Scanning coordinates: ${lat}, ${lon} at radius: ${searchRadiusMeters}m`); 
+    console.log(`📡 Sending coordinates to secure backend: ${lat}, ${lon}`); 
     
-    // SIMPLE NATIVE GET REQUEST
-    // This avoids ALL CORS preflight checks AND avoids the 406 Not Acceptable POST error.
-    const url = "https://overpass-api.de/api/interpreter?data=" + encodeURIComponent(query);
-    
-    const response = await fetch(url);
+    // We hit YOUR Vercel backend, completely dodging all CORS browser checks
+    const response = await fetch('/api/atms', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ lat, lon, radius: searchRadiusMeters })
+    });
     
     if (!response.ok) {
-       throw new Error(`Server returned ${response.status}`);
+       throw new Error(`Secure Backend returned ${response.status}`);
     }
 
     const data = await response.json();
-    console.log("🎯 Radar hits found:", data.elements.length); 
+    
+    if (!data.elements) return [];
+
+    console.log("🎯 Secure Radar hits found:", data.elements.length); 
 
     return data.elements.map(el => {
       const bankName = el.tags?.operator || el.tags?.brand || el.tags?.name || "Unknown Bank";
@@ -35,7 +38,7 @@ export async function fetchATMs(lat, lon) {
       };
     });
   } catch (error) {
-    console.error("🔴 Overpass API Error:", error.message);
+    console.error("🔴 Secure Backend Error:", error.message);
     return [];
   }
 }

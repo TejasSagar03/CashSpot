@@ -32,23 +32,25 @@ module.exports = function (req, res) {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
-      'Content-Length': Buffer.byteLength(postData)
+      'Content-Length': Buffer.byteLength(postData),
+      // THE MAGIC BULLETS: Prevents Overpass from throwing a 406 bot-block
+      'Accept': '*/*', 
+      'User-Agent': 'CashSpotApp/1.0 (BCA Final Year Project)' 
     }
   };
 
-  // 3. Native Node.js HTTPS request (Zero dependencies, 100% crash-proof)
+  // 3. Native Node.js HTTPS request
   const request = https.request(options, (response) => {
     let rawData = '';
     
-    // Read the data in chunks as it arrives from Germany
     response.on('data', (chunk) => { 
         rawData += chunk; 
     });
     
-    // When the download finishes, send it to the frontend
     response.on('end', () => {
+      // If Overpass STILL rejects it, this will grab the exact reason why
       if (response.statusCode !== 200) {
-         return res.status(response.statusCode).json({ error: 'Overpass Firewall Rejected', details: rawData });
+         return res.status(500).json({ error: `Overpass Rejected (Status ${response.statusCode})`, details: rawData });
       }
       try {
         const parsedData = JSON.parse(rawData);
@@ -59,12 +61,10 @@ module.exports = function (req, res) {
     });
   });
 
-  // If the actual Vercel server drops connection
   request.on('error', (e) => {
     return res.status(500).json({ error: 'Node HTTPS Module Crash', details: e.message });
   });
 
-  // Execute the request
   request.write(postData);
   request.end();
 };

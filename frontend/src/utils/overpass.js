@@ -7,31 +7,16 @@ export async function fetchATMs(lat, lon) {
   // 2. Convert Kilometers to Meters for the API
   const searchRadiusMeters = savedRadiusKm * 1000;
 
-  // 3. Inject the dynamic variable into the Overpass query
-  const query = `
-    [out:json][timeout:15];
-    (
-      node["amenity"~"atm|bank"](around:${searchRadiusMeters},${lat},${lon});
-      way["amenity"~"atm|bank"](around:${searchRadiusMeters},${lat},${lon});
-    );
-    out center qt; 
-  `;
+  // 3. Compress the query into a single string so it fits in a URL
+  const query = `[out:json][timeout:15];(node["amenity"~"atm|bank"](around:${searchRadiusMeters},${lat},${lon});way["amenity"~"atm|bank"](around:${searchRadiusMeters},${lat},${lon}););out center qt;`;
 
   try {
-    // BEACON 1: Check if the coordinates and dynamic radius are actually firing
     console.log(`📡 Scanning coordinates: ${lat}, ${lon} at radius: ${searchRadiusMeters}m`); 
     
-    // FIXED: The German server STRICTLY requires form-urlencoded data, not plain text.
-    const encodedQuery = 'data=' + encodeURIComponent(query);
+    // THE BULLETPROOF FIX: Use a GET request to physically bypass the CORS Preflight block
+    const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
+    const res = await axios.get(url);
 
-    const res = await axios.post('https://overpass-api.de/api/interpreter', encodedQuery, {
-      headers: { 
-        "Content-Type": "application/x-www-form-urlencoded",
-        "Accept": "application/json"
-      }
-    });
-
-    // BEACON 2: Check how many ATMs the server actually found
     console.log("🎯 Radar hits found:", res.data.elements.length); 
 
     return res.data.elements.map(el => {
@@ -48,7 +33,6 @@ export async function fetchATMs(lat, lon) {
       };
     });
   } catch (error) {
-    // BEACON 3: Catch any hidden errors
     console.error("🔴 Overpass API Error:", error.message);
     return [];
   }

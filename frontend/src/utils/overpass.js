@@ -18,7 +18,7 @@ export async function fetchATMs(lat, lon) {
   `;
 
   // The French mirror is currently the most stable for Vercel
-  const url = "https://overpass.openstreetmap.fr/api/interpreter";
+ const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
 
   try {
     // BEACON 1: Check if the coordinates and dynamic radius are actually firing

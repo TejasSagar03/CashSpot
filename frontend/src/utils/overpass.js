@@ -7,15 +7,20 @@ export async function fetchATMs(lat, lon) {
   try {
     console.log(`📡 Scanning coordinates: ${lat}, ${lon} at radius: ${searchRadiusMeters}m`); 
     
-    // THE NUCLEAR OPTION: AllOrigins CORS Proxy Bypass
-    // We send the request to the proxy, which fetches the Overpass data for us and returns it with zero security blocks.
-    const targetUrl = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
-    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
-    
-    const response = await fetch(proxyUrl);
+    // THE ULTIMATE BYPASS: URLSearchParams
+    // This perfectly formats the data and automatically sets the exact headers 
+    // needed to trick the browser into treating this like a native HTML form submit.
+    // Result: Zero CORS preflight checks, straight to the server.
+    const params = new URLSearchParams();
+    params.append("data", query);
+
+    const response = await fetch("https://overpass-api.de/api/interpreter", {
+      method: "POST",
+      body: params
+    });
     
     if (!response.ok) {
-       throw new Error(`Proxy Server returned ${response.status}`);
+       throw new Error(`Server returned ${response.status}`);
     }
 
     const data = await response.json();

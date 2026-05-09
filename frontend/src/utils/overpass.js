@@ -17,14 +17,12 @@ export async function fetchATMs(lat, lon) {
     out center qt; 
   `;
 
-  // The French mirror is currently the most stable for Vercel
- const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
-
   try {
     // BEACON 1: Check if the coordinates and dynamic radius are actually firing
     console.log(`📡 Scanning coordinates: ${lat}, ${lon} at radius: ${searchRadiusMeters}m`); 
     
-    const res = await axios.post(url, query, {
+    // FIXED: The hardcoded URL is now directly inside the axios call!
+    const res = await axios.post('https://overpass-api.de/api/interpreter', query, {
       headers: { "Content-Type": "text/plain" }
     });
 

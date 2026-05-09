@@ -1,29 +1,21 @@
 export async function fetchATMs(lat, lon) {
-  // 1. Read the saved radius from Settings, default to 6 if it doesn't exist
   const savedRadiusKm = Number(localStorage.getItem("cashspot_radius")) || 6;
   const searchRadiusMeters = savedRadiusKm * 1000;
 
-  // 2. We split the atm/bank search to avoid regex errors on their server
-  const rawQuery = `
-    [out:json][timeout:15];
-    (
-      node["amenity"="atm"](around:${searchRadiusMeters},${lat},${lon});
-      node["amenity"="bank"](around:${searchRadiusMeters},${lat},${lon});
-      way["amenity"="atm"](around:${searchRadiusMeters},${lat},${lon});
-      way["amenity"="bank"](around:${searchRadiusMeters},${lat},${lon});
-    );
-    out center qt;
-  `;
-
-  // THE MAGIC BULLET: This physically deletes every space and newline from the text
-  const cleanQuery = rawQuery.replace(/\s+/g, '');
+  // 1. Single-line query. No line breaks for the editor to mess up, but keeps required spaces.
+  const query = `[out:json][timeout:15];(node["amenity"~"atm|bank"](around:${searchRadiusMeters},${lat},${lon});way["amenity"~"atm|bank"](around:${searchRadiusMeters},${lat},${lon}););out center qt;`;
 
   try {
     console.log(`📡 Scanning coordinates: ${lat}, ${lon} at radius: ${searchRadiusMeters}m`); 
     
-    // 3. Native fetch GET request
-    const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(cleanQuery)}`;
-    const response = await fetch(url);
+    // 2. Native fetch POST. This bypasses CORS preflights perfectly.
+    const response = await fetch("https://overpass-api.de/api/interpreter", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded"
+      },
+      body: "data=" + encodeURIComponent(query)
+    });
     
     if (!response.ok) {
        throw new Error(`Server returned ${response.status}`);

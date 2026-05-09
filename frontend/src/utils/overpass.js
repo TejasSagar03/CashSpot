@@ -5,20 +5,18 @@ export async function fetchATMs(lat, lon) {
   try {
     console.log(`📡 Sending coordinates to secure backend: ${lat}, ${lon}`); 
     
-    // We hit YOUR Vercel backend, completely dodging all CORS browser checks
     const response = await fetch('/api/atms', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ lat, lon, radius: searchRadiusMeters })
     });
     
-    if (!response.ok) {
-       throw new Error(`Secure Backend returned ${response.status}`);
-    }
-
     const data = await response.json();
+
+    // If the backend returned an error, throw it so we can read it in the console
+    if (!response.ok) {
+       throw new Error(`BACKEND STATUS: ${response.status} | ERROR: ${data.error} | DETAILS: ${data.details}`);
+    }
     
     if (!data.elements) return [];
 
@@ -38,7 +36,7 @@ export async function fetchATMs(lat, lon) {
       };
     });
   } catch (error) {
-    console.error("🔴 Secure Backend Error:", error.message);
+    console.error("🔴 SECURE BACKEND CRASH:", error.message);
     return [];
   }
 }

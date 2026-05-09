@@ -2,23 +2,20 @@ export async function fetchATMs(lat, lon) {
   const savedRadiusKm = Number(localStorage.getItem("cashspot_radius")) || 6;
   const searchRadiusMeters = savedRadiusKm * 1000;
 
-  // 1. Single-line query. No line breaks for the editor to mess up, but keeps required spaces.
   const query = `[out:json][timeout:15];(node["amenity"~"atm|bank"](around:${searchRadiusMeters},${lat},${lon});way["amenity"~"atm|bank"](around:${searchRadiusMeters},${lat},${lon}););out center qt;`;
 
   try {
     console.log(`📡 Scanning coordinates: ${lat}, ${lon} at radius: ${searchRadiusMeters}m`); 
     
-    // 2. Native fetch POST. This bypasses CORS preflights perfectly.
-    const response = await fetch("https://overpass-api.de/api/interpreter", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded"
-      },
-      body: "data=" + encodeURIComponent(query)
-    });
+    // THE NUCLEAR OPTION: AllOrigins CORS Proxy Bypass
+    // We send the request to the proxy, which fetches the Overpass data for us and returns it with zero security blocks.
+    const targetUrl = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
+    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+    
+    const response = await fetch(proxyUrl);
     
     if (!response.ok) {
-       throw new Error(`Server returned ${response.status}`);
+       throw new Error(`Proxy Server returned ${response.status}`);
     }
 
     const data = await response.json();

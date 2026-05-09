@@ -21,9 +21,14 @@ export async function fetchATMs(lat, lon) {
     // BEACON 1: Check if the coordinates and dynamic radius are actually firing
     console.log(`📡 Scanning coordinates: ${lat}, ${lon} at radius: ${searchRadiusMeters}m`); 
     
-    // FIXED: The hardcoded URL is now directly inside the axios call!
-    const res = await axios.post('https://overpass-api.de/api/interpreter', query, {
-      headers: { "Content-Type": "text/plain" }
+    // FIXED: The German server STRICTLY requires form-urlencoded data, not plain text.
+    const encodedQuery = 'data=' + encodeURIComponent(query);
+
+    const res = await axios.post('https://overpass-api.de/api/interpreter', encodedQuery, {
+      headers: { 
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Accept": "application/json"
+      }
     });
 
     // BEACON 2: Check how many ATMs the server actually found

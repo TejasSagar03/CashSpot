@@ -5,6 +5,19 @@ import { motion, AnimatePresence } from "framer-motion";
 import SchematicGlobeSVG from "../components/SchematicGlobeSVG";
 import AnimatedPage from "../components/AnimatedPage"; 
 
+// THE FIX: Global interaction tracker. 
+// Prevents the browser from throwing the navigator.vibrate Intervention error.
+let globalInteractionFlag = false;
+if (typeof window !== "undefined") {
+  const unlockHaptics = () => {
+    globalInteractionFlag = true;
+    window.removeEventListener('pointerdown', unlockHaptics);
+    window.removeEventListener('keydown', unlockHaptics);
+  };
+  window.addEventListener('pointerdown', unlockHaptics);
+  window.addEventListener('keydown', unlockHaptics);
+}
+
 const MemoizedGlobe = memo(() => (
   <div className="fixed inset-0 w-full h-[100dvh] flex items-center justify-center pointer-events-none z-0">
     <SchematicGlobeSVG className="w-[300vw] h-[300vw] md:w-[1300px] md:h-[1300px] text-black dark:text-white opacity-[0.3] dark:opacity-[0.4] animate-[spin_180s_linear_infinite]" />
@@ -29,9 +42,14 @@ function Home() {
     satellites: 8
   });
 
+  // THE FIX: Haptics only fire if the user has touched the screen at least once
   const haptic = (pattern) => { 
-    if (typeof window !== "undefined" && navigator.vibrate) {
-      navigator.vibrate(pattern); 
+    if (globalInteractionFlag && typeof window !== "undefined" && navigator.vibrate) {
+      try {
+        navigator.vibrate(pattern); 
+      } catch (error) {
+        // Silently catch any leftover strict-mode browser blocks
+      }
     }
   };
 
@@ -128,7 +146,7 @@ function Home() {
                     <div className="flex flex-col gap-4 w-full">
                         <button onClick={() => {
                             navigator.clipboard.writeText(intelLink);
-                            if (navigator.vibrate) navigator.vibrate([20, 50, 20]);
+                            haptic([20, 50, 20]);
                             alert("[SYSTEM] Link copied to clipboard.");
                             setShareState("HIDDEN");
                         }} className="w-full py-4 bg-green-500 text-black font-bold uppercase tracking-widest rounded-2xl hover:bg-green-400 active:scale-95 transition-all shadow-[0_0_20px_rgba(34,197,94,0.3)] cursor-pointer">
@@ -369,7 +387,7 @@ function Home() {
               <div className="flex items-center gap-2">
                  <div className={`w-2.5 h-2.5 rounded-full ${isPinging ? 'bg-yellow-500 animate-pulse shadow-[0_0_8px_rgba(234,179,8,0.8)]' : 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]'}`}></div>
                  <span className="text-[10px] font-mono tracking-widest text-gray-500">API_LINK</span>
-              </div>
+               </div>
             </div>
             <div className="flex items-center justify-between px-2">
                <div className="flex items-baseline gap-1.5">

@@ -90,6 +90,20 @@ function ATMCard({ loc, setRouteTarget, setCompassTarget, travelMode = "walking"
     }
   };
 
+  // THE FIX: Translates the travel mode and launches external Google Maps
+  const handleGoogleMaps = (e) => {
+    e.stopPropagation();
+    
+    let gmapMode = 'walking'; // Default
+    const modeStr = travelMode.toLowerCase();
+    
+    if (modeStr.includes('drive')) gmapMode = 'driving';
+    if (modeStr.includes('ride') || modeStr.includes('bike')) gmapMode = 'bicycling';
+
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${loc.lat},${loc.lng}&travelmode=${gmapMode}`;
+    window.open(url, '_blank');
+  };
+
   return (
     <>
       <AnimatePresence>
@@ -143,12 +157,22 @@ function ATMCard({ loc, setRouteTarget, setCompassTarget, travelMode = "walking"
         </div>
 
         <div className="mt-4 pt-4 border-t-2 border-dashed border-gray-300 dark:border-gray-700 flex justify-start items-center w-full gap-3">
-          <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={(e) => { e.stopPropagation(); if(setCompassTarget) setCompassTarget(loc); }} className="w-10 h-10 flex items-center justify-center bg-transparent border-2 border-black dark:border-white text-black dark:text-white rounded-full hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black transition-colors cursor-pointer">
+          
+          {/* Compass Button */}
+          <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={(e) => { e.stopPropagation(); if(setCompassTarget) setCompassTarget(loc); }} className="w-10 h-10 flex items-center justify-center bg-transparent border-2 border-black dark:border-white text-black dark:text-white rounded-full hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black transition-colors cursor-pointer" title="Direct Compass Heading">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
           </motion.button>
-          <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={(e) => { e.stopPropagation(); if(setRouteTarget) setRouteTarget(loc); }} className="w-10 h-10 flex items-center justify-center bg-black text-white dark:bg-white dark:text-black rounded-full hover:bg-gray-800 dark:hover:bg-gray-200 transition-colors cursor-pointer">
+          
+          {/* Internal Route Button */}
+          <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={(e) => { e.stopPropagation(); if(setRouteTarget) setRouteTarget(loc); }} className="w-10 h-10 flex items-center justify-center bg-black text-white dark:bg-white dark:text-black rounded-full hover:bg-gray-800 dark:hover:bg-gray-200 transition-colors cursor-pointer" title="Internal Routing">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
           </motion.button>
+
+          {/* NEW: Google Maps Button */}
+          <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={handleGoogleMaps} className="w-10 h-10 flex items-center justify-center bg-transparent border-2 border-black dark:border-white text-black dark:text-white rounded-full hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black transition-colors cursor-pointer" title="Open in Google Maps">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" /></svg>
+          </motion.button>
+
         </div>
       </motion.div>
     </>

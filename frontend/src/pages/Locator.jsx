@@ -13,6 +13,10 @@ import AnimatedPage from "../components/AnimatedPage";
 import { useProximityHaptics } from "../hooks/useProximityHaptics";
 import { useBattery } from "../hooks/useBattery"; 
 
+// NEW: Firebase imports to persist the XP to the user's profile
+import { doc, setDoc, increment } from "firebase/firestore";
+import { db, auth } from "../firebase";
+
 function Locator() {
   const [locations, setLocations] = useState([]);
   const [filtered, setFiltered] = useState([]);
@@ -34,7 +38,6 @@ function Locator() {
 
   const [sysDialog, setSysDialog] = useState({ show: false, title: '', message: '', isError: false });
   
-  // NEW: Mission Success State
   const [missionSuccess, setMissionSuccess] = useState(false);
 
   const showDialog = useCallback((title, message, isError = false) => {
@@ -464,13 +467,43 @@ function Locator() {
 
   useProximityHaptics(liveTargetDistance);
 
-  // NEW: Auto-Trigger Success when physically arriving (Distance < 15 meters)
+  // Auto-Trigger Success when physically arriving (Distance < 15 meters)
   useEffect(() => {
     if (liveTargetDistance !== null && liveTargetDistance < 15 && !missionSuccess) {
       if (navigator.vibrate) navigator.vibrate([100, 50, 100, 50, 200]);
       setMissionSuccess(true);
     }
   }, [liveTargetDistance, missionSuccess]);
+
+  // THE XP INTEGRATION: This writes the XP to the profile permanently
+  const handleCompleteMission = async () => {
+    // 1. Save to Offline Hardware Memory (So it works in Zero-G Mode)
+    const currentLocalXP = parseInt(localStorage.getItem('cashspot_rep_points') || '0');
+    localStorage.setItem('cashspot_rep_points', currentLocalXP + 100);
+
+    const currentMissions = parseInt(localStorage.getItem('cashspot_missions_completed') || '0');
+    localStorage.setItem('cashspot_missions_completed', currentMissions + 1);
+
+    // 2. Save to Online Cloud Database (If user is logged in)
+    const currentUser = auth?.currentUser;
+    if (currentUser) {
+      try {
+        const userRef = doc(db, "users", currentUser.uid);
+        await setDoc(userRef, { 
+          repPoints: increment(100), 
+          missionsCompleted: increment(1) 
+        }, { merge: true });
+        console.log("XP Synced to Cloud Profile.");
+      } catch (error) {
+        console.error("Cloud Sync Failed (Will use local memory):", error);
+      }
+    }
+
+    // 3. Reset the UI and clear tracking targets
+    setMissionSuccess(false);
+    setRouteTarget(null);
+    setCompassTarget(null);
+  };
 
   return (
     <AnimatedPage>
@@ -621,20 +654,6 @@ function Locator() {
             
             <div className="flex items-center gap-2">
               
-              {/* NEW: DEV ARRIVAL BUTTON (Only shows when tracking a target) */}
-              {(routeTarget || compassTarget) && (
-                <button 
-                  onClick={() => {
-                    if (navigator.vibrate) navigator.vibrate([100, 50, 100, 50, 200]);
-                    setMissionSuccess(true);
-                  }}
-                  className="px-3 py-1.5 rounded-lg border border-green-500/50 bg-green-500/10 text-green-500 text-[9px] font-bold uppercase tracking-widest hover:bg-green-500 hover:text-black transition-all animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.2)] cursor-pointer"
-                  title="Dev Tool: Instantly trigger extraction success screen"
-                >
-                  TEST ARRIVAL
-                </button>
-              )}
-
               {loading && <SchematicLoaderSVG className="w-5 h-5 mr-1" />}
               
               <button 
@@ -780,7 +799,7 @@ function Locator() {
           )}
         </AnimatePresence>
 
-        {/* --- NEW: MISSION SUCCESS OVERLAY --- */}
+        {/* --- MISSION SUCCESS OVERLAY --- */}
         <AnimatePresence>
           {missionSuccess && (
             <motion.div 
@@ -820,12 +839,9 @@ function Locator() {
                   </div>
                 </div>
 
+                {/* The new save handler is hooked up here */}
                 <button 
-                  onClick={() => {
-                    setMissionSuccess(false);
-                    setRouteTarget(null);
-                    setCompassTarget(null);
-                  }} 
+                  onClick={handleCompleteMission}
                   className="w-full py-5 bg-white text-black font-black uppercase tracking-[0.2em] rounded-xl hover:scale-105 active:scale-95 transition-transform shadow-[0_0_30px_rgba(255,255,255,0.2)] cursor-pointer"
                 >
                   Complete Mission

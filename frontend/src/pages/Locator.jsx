@@ -26,7 +26,6 @@ function Locator() {
   const [voiceAction, setVoiceAction] = useState(null);
   const [isListeningForFollowUp, setIsListeningForFollowUp] = useState(false);
   
-  // Controls the bottom sheet state
   const [isMinimized, setIsMinimized] = useState(true);
   const [isDesktop, setIsDesktop] = useState(true); 
   const [shareState, setShareState] = useState("HIDDEN"); 
@@ -243,6 +242,7 @@ function Locator() {
     }
   }, []);
 
+  // --- THE FIX: D/L SECTOR TRANSLATION LAYER ---
   const handleDownloadSector = async () => {
     if (!userLocation) {
       showDialog("STANDBY", "Awaiting GPS Lock to define sector bounds.", true);
@@ -257,9 +257,28 @@ function Locator() {
     try {
       const searchRadius = Number(localStorage.getItem("cashspot_radius")) * 1000 || 5000;
       const data = await fetchATMs(userLocation[0], userLocation[1], searchRadius);
+      
+      // 1. Save for the offline Radar Map (Zero-G Mode)
       localStorage.setItem('cashspot_zero_g_cache', JSON.stringify(data));
+
+      // 2. Translate the raw Geoapify data into the EXACT format the Home screen expects
+      const newSpots = data.map(node => ({
+        id: node.id || Math.random().toString(),
+        name: node.name || node.bank || "Unknown Terminal",
+        type: node.type || "FIN-NODE",
+        lat: node.lat,
+        lng: node.lng || node.lon
+      }));
+
+      // 3. Push to Pinned Locations (This auto-syncs to cashspot_saved_spots via your useEffect)
+      setSavedLocations(prev => {
+        const existingIds = new Set(prev.map(p => p.id));
+        const uniqueNew = newSpots.filter(spot => !existingIds.has(spot.id));
+        return [...uniqueNew, ...prev];
+      });
+
       if (navigator.vibrate) navigator.vibrate([30, 50, 30]);
-      showDialog("ZERO-G SECURED", `${data.length} hardware nodes downloaded to local memory. System ready for offline deployment.`);
+      showDialog("SECTOR SECURED", `${data.length} nodes downloaded for offline radar and pinned to your Home Screen.`);
     } catch (err) {
       showDialog("ERROR", "Failed to download sector data.", true);
     } finally {
@@ -450,8 +469,6 @@ function Locator() {
     <AnimatedPage>
       <div className="relative h-[100dvh] w-full overflow-hidden bg-[#f8fafc] dark:bg-[#050505] font-sans transition-colors duration-500">
         
-        {/* --- NUCLEAR MAP CONTROLS FIX --- */}
-        {/* Forces all map controls to the vertical center of the screen so they NEVER touch the bottom sheet */}
         <style>{`
           @media (max-width: 768px) {
             .leaflet-top.leaflet-right, 
@@ -471,7 +488,6 @@ function Locator() {
           }
         `}</style>
 
-        {/* --- ZERO-G (OFFLINE) ALERT BANNER --- */}
         <AnimatePresence>
           {isOffline && (
             <motion.div 
@@ -563,7 +579,6 @@ function Locator() {
           )}
         </AnimatePresence>
 
-        {/* --- SIDEBAR / BOTTOM SHEET --- */}
         <motion.div 
           initial={false}
           animate={{ y: isDesktop ? 0 : (isMinimized ? "calc(100% - 240px)" : 0) }}

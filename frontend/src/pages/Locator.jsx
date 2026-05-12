@@ -34,6 +34,9 @@ function Locator() {
 
   const [sysDialog, setSysDialog] = useState({ show: false, title: '', message: '', isError: false });
   
+  // NEW: Mission Success State
+  const [missionSuccess, setMissionSuccess] = useState(false);
+
   const showDialog = useCallback((title, message, isError = false) => {
     setSysDialog({ show: true, title, message, isError });
   }, []);
@@ -242,7 +245,6 @@ function Locator() {
     }
   }, []);
 
-  // --- THE FIX: D/L SECTOR TRANSLATION LAYER ---
   const handleDownloadSector = async () => {
     if (!userLocation) {
       showDialog("STANDBY", "Awaiting GPS Lock to define sector bounds.", true);
@@ -258,10 +260,8 @@ function Locator() {
       const searchRadius = Number(localStorage.getItem("cashspot_radius")) * 1000 || 5000;
       const data = await fetchATMs(userLocation[0], userLocation[1], searchRadius);
       
-      // 1. Save for the offline Radar Map (Zero-G Mode)
       localStorage.setItem('cashspot_zero_g_cache', JSON.stringify(data));
 
-      // 2. Translate the raw Geoapify data into the EXACT format the Home screen expects
       const newSpots = data.map(node => ({
         id: node.id || Math.random().toString(),
         name: node.name || node.bank || "Unknown Terminal",
@@ -270,7 +270,6 @@ function Locator() {
         lng: node.lng || node.lon
       }));
 
-      // 3. Push to Pinned Locations (This auto-syncs to cashspot_saved_spots via your useEffect)
       setSavedLocations(prev => {
         const existingIds = new Set(prev.map(p => p.id));
         const uniqueNew = newSpots.filter(spot => !existingIds.has(spot.id));
@@ -286,7 +285,7 @@ function Locator() {
     }
   };
 
-useEffect(() => {
+  useEffect(() => {
     if (!navigator.geolocation) return;
 
     let watchId;
@@ -295,16 +294,13 @@ useEffect(() => {
     const handleSuccess = (pos) => {
       const coords = [pos.coords.latitude, pos.coords.longitude];
       setUserLocation(coords);
-      // Only fetch the heavy API data (or offline cache) once
       if (!hasFetchedInitialData.current) {
         getNearbyData(coords[0], coords[1]);
         hasFetchedInitialData.current = true;
       }
     };
 
-    const handleError = (err) => {
-        console.warn("GPS Warning:", err.message);
-    };
+    const handleError = (err) => console.warn("GPS Warning:", err.message);
 
     if (isCriticalPower) {
       intervalId = setInterval(() => {
@@ -315,12 +311,9 @@ useEffect(() => {
         });
       }, 10000);
     } else {
-      // THE SECURE HARDWARE FIX:
       watchId = navigator.geolocation.watchPosition(handleSuccess, handleError, { 
         enableHighAccuracy: true, 
-        // We give the physical GPS chip 40 full seconds to find satellites in space
         timeout: 40000, 
-        // We allow it to use slightly older coordinates while it hunts for a new lock
         maximumAge: 15000 
       });
     }
@@ -471,6 +464,14 @@ useEffect(() => {
 
   useProximityHaptics(liveTargetDistance);
 
+  // NEW: Auto-Trigger Success when physically arriving (Distance < 15 meters)
+  useEffect(() => {
+    if (liveTargetDistance !== null && liveTargetDistance < 15 && !missionSuccess) {
+      if (navigator.vibrate) navigator.vibrate([100, 50, 100, 50, 200]);
+      setMissionSuccess(true);
+    }
+  }, [liveTargetDistance, missionSuccess]);
+
   return (
     <AnimatedPage>
       <div className="relative h-[100dvh] w-full overflow-hidden bg-[#f8fafc] dark:bg-[#050505] font-sans transition-colors duration-500">
@@ -619,6 +620,21 @@ useEffect(() => {
             <h2 className="text-[1.1rem] font-bold text-black dark:text-white tracking-tight">Active Grid</h2>
             
             <div className="flex items-center gap-2">
+              
+              {/* NEW: DEV ARRIVAL BUTTON (Only shows when tracking a target) */}
+              {(routeTarget || compassTarget) && (
+                <button 
+                  onClick={() => {
+                    if (navigator.vibrate) navigator.vibrate([100, 50, 100, 50, 200]);
+                    setMissionSuccess(true);
+                  }}
+                  className="px-3 py-1.5 rounded-lg border border-green-500/50 bg-green-500/10 text-green-500 text-[9px] font-bold uppercase tracking-widest hover:bg-green-500 hover:text-black transition-all animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.2)] cursor-pointer"
+                  title="Dev Tool: Instantly trigger extraction success screen"
+                >
+                  TEST ARRIVAL
+                </button>
+              )}
+
               {loading && <SchematicLoaderSVG className="w-5 h-5 mr-1" />}
               
               <button 
@@ -761,6 +777,61 @@ useEffect(() => {
                 </button>
               </motion.div>
             </div>
+          )}
+        </AnimatePresence>
+
+        {/* --- NEW: MISSION SUCCESS OVERLAY --- */}
+        <AnimatePresence>
+          {missionSuccess && (
+            <motion.div 
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} 
+              className="fixed inset-0 z-[999999] flex flex-col items-center justify-center bg-[#0a0a0a]/95 backdrop-blur-xl p-6"
+            >
+              <motion.div 
+                initial={{ scale: 0.8, y: 50 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.8, opacity: 0 }} 
+                transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                className="w-full max-w-sm flex flex-col items-center text-center relative"
+              >
+                {/* Tactical Checkmark */}
+                <div className="w-32 h-32 rounded-full border border-green-500/30 flex items-center justify-center mb-8 relative">
+                   <div className="absolute inset-0 rounded-full border border-green-500/20 animate-ping"></div>
+                   <div className="w-24 h-24 rounded-full bg-green-500 shadow-[0_0_50px_rgba(34,197,94,0.4)] flex items-center justify-center text-[#0a0a0a]">
+                     <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M5 13l4 4L19 7" /></svg>
+                   </div>
+                </div>
+
+                {/* Glitch Typography */}
+                <div className="mb-8">
+                   <span style={{ fontFamily: "'ndot 45', sans-serif" }} className="text-3xl font-bold text-white uppercase tracking-[0.2em] block mb-2">Node Secured</span>
+                   <span className="text-[10px] font-mono uppercase tracking-[0.3em] text-gray-400 block">
+                     Extraction Point: {activeTrackingTarget?.name || activeTrackingTarget?.bank || "Unknown Terminal"}
+                   </span>
+                </div>
+
+                {/* Tactical Stats Panel */}
+                <div className="w-full border border-gray-800 rounded-2xl p-6 bg-black mb-10 flex flex-col gap-4">
+                  <div className="flex justify-between items-center border-b border-gray-800 pb-4">
+                     <span className="text-[10px] uppercase tracking-widest text-gray-500 font-bold">Bounty Claimed</span>
+                     <span style={{ fontFamily: "'ndot 45', sans-serif" }} className="text-xl text-green-400 tracking-widest">+100 XP</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                     <span className="text-[10px] uppercase tracking-widest text-gray-500 font-bold">System Status</span>
+                     <span className="text-[10px] uppercase tracking-widest text-white font-mono bg-white/10 px-2 py-1 rounded">Operative</span>
+                  </div>
+                </div>
+
+                <button 
+                  onClick={() => {
+                    setMissionSuccess(false);
+                    setRouteTarget(null);
+                    setCompassTarget(null);
+                  }} 
+                  className="w-full py-5 bg-white text-black font-black uppercase tracking-[0.2em] rounded-xl hover:scale-105 active:scale-95 transition-transform shadow-[0_0_30px_rgba(255,255,255,0.2)] cursor-pointer"
+                >
+                  Complete Mission
+                </button>
+              </motion.div>
+            </motion.div>
           )}
         </AnimatePresence>
 

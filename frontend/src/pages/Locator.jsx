@@ -286,7 +286,7 @@ function Locator() {
     }
   };
 
-  useEffect(() => {
+useEffect(() => {
     if (!navigator.geolocation) return;
 
     let watchId;
@@ -295,27 +295,33 @@ function Locator() {
     const handleSuccess = (pos) => {
       const coords = [pos.coords.latitude, pos.coords.longitude];
       setUserLocation(coords);
+      // Only fetch the heavy API data (or offline cache) once
       if (!hasFetchedInitialData.current) {
         getNearbyData(coords[0], coords[1]);
         hasFetchedInitialData.current = true;
       }
     };
 
-    const handleError = (err) => console.warn("GPS Error:", err);
+    const handleError = (err) => {
+        console.warn("GPS Warning:", err.message);
+    };
 
     if (isCriticalPower) {
       intervalId = setInterval(() => {
         navigator.geolocation.getCurrentPosition(handleSuccess, handleError, {
           enableHighAccuracy: false,
-          timeout: 5000,
-          maximumAge: 5000
+          timeout: 15000, 
+          maximumAge: 10000
         });
-      }, 5000);
+      }, 10000);
     } else {
+      // THE SECURE HARDWARE FIX:
       watchId = navigator.geolocation.watchPosition(handleSuccess, handleError, { 
         enableHighAccuracy: true, 
-        timeout: 5000, 
-        maximumAge: 0 
+        // We give the physical GPS chip 40 full seconds to find satellites in space
+        timeout: 40000, 
+        // We allow it to use slightly older coordinates while it hunts for a new lock
+        maximumAge: 15000 
       });
     }
 

@@ -10,9 +10,9 @@
   font-display: swap;
 }
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
 
 @layer base {
   html, body {
@@ -75,7 +75,6 @@ body::-webkit-scrollbar {
 }
 body {
   -ms-overflow-style: none; 
-  scrollbar-width: none; 
 }
 
 /* ==========================================================
@@ -293,4 +292,25 @@ body {
   filter: sepia(100%) hue-rotate(320deg) saturate(300%) contrast(120%) brightness(70%) !important;
   transition: filter 1s ease-in-out;
   background-color: #000 !important;
+}
+
+/* ==========================================================
+   ZERO-G TACTICAL GRID FALLBACK (NEW)
+   ========================================================== */
+/* When offline map tiles fail to load, this turns the white screen into a radar grid */
+.leaflet-container, .mapboxgl-map {
+    background-color: #050505 !important;
+    background-image:
+      linear-gradient(#1a1a1a 1px, transparent 1px),
+      linear-gradient(90deg, #1a1a1a 1px, transparent 1px) !important;
+    background-size: 30px 30px !important;
+}
+
+/* Hides the broken image icons when offline */
+.leaflet-tile-loaded {
+    display: block !important;
+}
+.leaflet-tile {
+    /* If the tile fails to load, make it invisible so the grid shows through */
+    color: transparent !important;
 }

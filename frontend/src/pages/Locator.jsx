@@ -286,47 +286,66 @@ function Locator() {
     }
   };
 
-  // --- THE FIX: MILITARY-GRADE GPS POLLING ENGINE ---
+  // --- THE FIX: MOBILE-OPTIMIZED GPS ENGINE ---
   useEffect(() => {
     if (!navigator.geolocation) return;
 
+    let watchId;
     let intervalId;
 
-    const pollHardwareGPS = () => {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const coords = [pos.coords.latitude, pos.coords.longitude];
-          
-          setUserLocation(prev => {
-            // Anti-Jitter Rule: Only update the map if the user physically moved more than 2 meters
-            if (!prev) return coords;
-            const dist = calculateDistance(prev[0], prev[1], coords[0], coords[1]);
-            return dist > 2 ? coords : prev;
-          });
+    const handleSuccess = (pos) => {
+        const coords = [pos.coords.latitude, pos.coords.longitude];
+        
+        setUserLocation(prev => {
+          // Anti-Jitter: Only update the UI if the user physically moved more than 2 meters
+          if (!prev) return coords;
+          const dist = calculateDistance(prev[0], prev[1], coords[0], coords[1]);
+          return dist > 2 ? coords : prev;
+        });
 
-          if (!hasFetchedInitialData.current) {
-            getNearbyData(coords[0], coords[1]);
-            hasFetchedInitialData.current = true;
-          }
-        },
-        (err) => console.warn("Hardware GPS Warning:", err.message),
-        {
-          enableHighAccuracy: true,
-          timeout: 10000, 
-          // CRITICAL FIX: 0 forces the phone to bypass the browser's network cache and poll the physical satellites directly
-          maximumAge: 0 
+        if (!hasFetchedInitialData.current) {
+          getNearbyData(coords[0], coords[1]);
+          hasFetchedInitialData.current = true;
         }
-      );
     };
 
-    // Force an immediate GPS lock when the component loads
-    pollHardwareGPS();
+    const handleError = (err) => {
+        console.warn("Mobile GPS Warning:", err.message);
+        // Mobile Hardware Fallback: If pure satellite lock fails or times out,
+        // instantly request a low-accuracy ping just to keep the tracking alive.
+        if (err.code === err.TIMEOUT || err.code === err.POSITION_UNAVAILABLE) {
+           navigator.geolocation.getCurrentPosition(
+             (fallbackPos) => {
+               setUserLocation([fallbackPos.coords.latitude, fallbackPos.coords.longitude]);
+             },
+             () => {}, 
+             { enableHighAccuracy: false, maximumAge: 10000 }
+           );
+        }
+    };
 
-    // The aggressive background looping engine (Every 4 seconds)
-    const pollRate = isCriticalPower ? 15000 : 4000;
-    intervalId = setInterval(pollHardwareGPS, pollRate);
+    if (isCriticalPower) {
+      // If battery is dying, fall back to the low-power interval
+      intervalId = setInterval(() => {
+        navigator.geolocation.getCurrentPosition(handleSuccess, handleError, {
+          enableHighAccuracy: false,
+          timeout: 15000, 
+          maximumAge: 10000
+        });
+      }, 10000);
+    } else {
+      // Mobile OS blocks aggressive setInterval loops. We MUST use native watchPosition.
+      watchId = navigator.geolocation.watchPosition(handleSuccess, handleError, {
+        enableHighAccuracy: true,
+        timeout: 15000,       // Give mobile chips 15 seconds to find space satellites
+        maximumAge: 5000      // Allow 5-second old hardware data so the OS doesn't block us
+      });
+    }
 
-    return () => clearInterval(intervalId);
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+      if (watchId) navigator.geolocation.clearWatch(watchId);
+    };
   }, [isCriticalPower, getNearbyData]);
 
 

@@ -51,31 +51,60 @@ function MapController({ center, zoom }) {
 
 function MapView({ locations, userLocation, routeTarget, travelMode = "walking" }) {
   const [map, setMap] = useState(null);
-  const routingControlRef = useRef(null);
   const targetNameRef = useRef("");
-  const lastRoutedPosition = useRef(null); // THE FIX: Memory bank for GPS Drift
+  const lastRoutedPosition = useRef(null); 
+  const [routeWaypoints, setRouteWaypoints] = useState(null);
 
-  // Retrieve System Preferences from Settings
   const mapStyle = localStorage.getItem("cashspot_map_style") || "vector";
-
   const vectorUrl = "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png";
   const satelliteUrl = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
 
   // ==========================================
-  // BRAIN 1: The Builder (Runs ONCE on load)
+  // BRAIN 1: The Anti-Drift Engine
+  // Determines WHEN the route should actually update
   // ==========================================
   useEffect(() => {
-    if (!map) return;
+    if (!userLocation || !routeTarget) {
+      setRouteWaypoints(null);
+      lastRoutedPosition.current = null;
+      return;
+    }
 
-    // Nuke any ghost boxes left over by React Strict Mode
+    const startLatLng = L.latLng(userLocation[0], userLocation[1]);
+    const endLatLng = L.latLng(routeTarget.lat, routeTarget.lng || routeTarget.lon);
+
+    if (lastRoutedPosition.current) {
+      const { start, end } = lastRoutedPosition.current;
+      const movedDistance = startLatLng.distanceTo(start); 
+      const isSameTarget = endLatLng.distanceTo(end) < 1;
+
+      // If tracking the same ATM and you haven't walked more than 15 meters, IGNORE the GPS drift
+      if (isSameTarget && movedDistance < 15) {
+        return; 
+      }
+    }
+
+    lastRoutedPosition.current = { start: startLatLng, end: endLatLng };
+    targetNameRef.current = routeTarget.bank || routeTarget.name || "Target Terminal";
+    setRouteWaypoints([startLatLng, endLatLng]);
+  }, [userLocation, routeTarget]);
+
+  // ==========================================
+  // BRAIN 2: The Nuke & Pave Engine
+  // Destroys the old route completely before drawing the new one
+  // ==========================================
+  useEffect(() => {
+    // 1. Clear any orphaned ghost boxes from the screen
     document.querySelectorAll('.leaflet-routing-container').forEach(el => el.remove());
+
+    if (!map || !routeWaypoints) return;
 
     const isDark = document.documentElement.classList.contains('dark');
     const lineColor = isDark ? '#ff0000' : '#cc0000';
 
-    // Create the empty control box
+    // 2. Build a brand new routing instance from scratch
     const routingControl = L.Routing.control({
-      waypoints: [], 
+      waypoints: routeWaypoints,
       lineOptions: {
         styles: [{ color: lineColor, weight: 6, opacity: 1, dashArray: '4, 14', lineCap: 'round' }] 
       },
@@ -88,9 +117,7 @@ function MapView({ locations, userLocation, routeTarget, travelMode = "walking" 
       position: 'topright' 
     }).addTo(map);
 
-    routingControlRef.current = routingControl;
-
-    // When the route finishes calculating, inject the ATM Name header
+    // 3. Inject the clean header
     routingControl.on('routeselected', () => {
       setTimeout(() => {
         const container = document.querySelector('.leaflet-routing-container');
@@ -107,62 +134,12 @@ function MapView({ locations, userLocation, routeTarget, travelMode = "walking" 
       }, 50);
     });
 
-    // Cleanup when the map is totally destroyed
+    // 4. THE ABSOLUTE GUARANTEE: If waypoints change or component unmounts, 
+    // utterly destroy this specific route instance so it cannot stack.
     return () => {
       try { map.removeControl(routingControl); } catch(e) {}
-      routingControlRef.current = null;
     };
-  }, [map]);
-
-
-  // ==========================================
-  // BRAIN 2: The Updater (Runs when you move)
-  // ==========================================
-  useEffect(() => {
-    if (!routingControlRef.current || !userLocation) return;
-
-    if (routeTarget) {
-      const startLatLng = L.latLng(userLocation[0], userLocation[1]);
-      const endLatLng = L.latLng(routeTarget.lat, routeTarget.lng || routeTarget.lon);
-
-      // THE FIX: Anti-Spam Lock
-      // Prevents the app from duplicating routes when your indoor GPS drifts.
-      let shouldUpdateRoute = true;
-
-      if (lastRoutedPosition.current) {
-        const { start, end } = lastRoutedPosition.current;
-        const movedDistance = startLatLng.distanceTo(start); // Leaflet calculates this in meters
-        const isSameTarget = endLatLng.distanceTo(end) < 1;
-
-        // If you are tracking the same ATM, and you haven't physically walked more than 15 meters, IGNORE the update
-        if (isSameTarget && movedDistance < 15) {
-          shouldUpdateRoute = false;
-        }
-      }
-
-      if (shouldUpdateRoute) {
-        targetNameRef.current = routeTarget.bank || routeTarget.name || "Target Terminal";
-        lastRoutedPosition.current = { start: startLatLng, end: endLatLng };
-
-        // DOM FAILSAFE: Manually rip out the old instruction tables before Leaflet draws the new ones
-        const container = document.querySelector('.leaflet-routing-container');
-        if (container) {
-          const oldInstructions = container.querySelectorAll('.leaflet-routing-alt');
-          oldInstructions.forEach(el => el.remove());
-        }
-
-        // Quietly update the coordinates inside the EXISTING box
-        routingControlRef.current.setWaypoints([startLatLng, endLatLng]);
-      }
-    } else {
-      // If no target is selected, clear the waypoints, reset memory, and hide the box
-      lastRoutedPosition.current = null;
-      routingControlRef.current.setWaypoints([]);
-      const container = document.querySelector('.leaflet-routing-container');
-      if (container) container.style.display = 'none';
-    }
-  }, [userLocation, routeTarget]);
-
+  }, [map, routeWaypoints]);
 
   const handleLocateMe = () => {
     if (navigator.vibrate) navigator.vibrate(50);
@@ -230,7 +207,6 @@ function MapView({ locations, userLocation, routeTarget, travelMode = "walking" 
                     </h3>
                     <p className="text-[10px] text-gray-500 font-mono uppercase tracking-widest mb-3">{loc.type || "ATM"}</p>
                     
-                    {/* OFFICIAL DEEP LINK INJECTED HERE */}
                     <a href={`https://www.google.com/maps/dir/?api=1&destination=$${loc.lat},${loc.lng || loc.lon}&travelmode=${travelMode}`} target="_blank" rel="noreferrer" className="w-full block">
                       <button className="w-full flex items-center justify-center gap-2 bg-black hover:bg-gray-800 text-white font-semibold px-4 py-2 rounded-xl transition-colors text-xs">
                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.243-4.243a8 8 0 1111.314 0zM15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>

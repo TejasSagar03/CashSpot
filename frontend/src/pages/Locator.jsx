@@ -277,7 +277,6 @@ function Locator() {
         return [...uniqueNew, ...prev];
       });
 
-      // THE FIX: Instantly inject the downloaded ATMs onto the map so you get the "Complete Output"
       const withDistance = data.map(loc => ({
         ...loc,
         distance: calculateDistance(userLocation[0], userLocation[1], loc.lat, loc.lng || loc.lon)
@@ -295,7 +294,6 @@ function Locator() {
     }
   };
 
-  // THE MOBILE GPS FIX
   useEffect(() => {
     if (!navigator.geolocation) return;
 
@@ -492,9 +490,9 @@ function Locator() {
 
   useProximityHaptics(liveTargetDistance);
 
-  // Auto-Trigger Success when physically arriving (Distance < 15 meters)
+  // THE FIX: 0.015 KM = 15 Meters
   useEffect(() => {
-    if (liveTargetDistance !== null && liveTargetDistance < 15 && !missionSuccess) {
+    if (liveTargetDistance !== null && liveTargetDistance < 0.015 && !missionSuccess) {
       if (navigator.vibrate) navigator.vibrate([100, 50, 100, 50, 200]);
       setMissionSuccess(true);
     }

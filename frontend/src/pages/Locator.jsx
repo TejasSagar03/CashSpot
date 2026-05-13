@@ -12,8 +12,6 @@ import SchematicLoaderSVG from "../components/SchematicLoaderSVG";
 import AnimatedPage from "../components/AnimatedPage"; 
 import { useProximityHaptics } from "../hooks/useProximityHaptics";
 import { useBattery } from "../hooks/useBattery"; 
-
-// NEW: Firebase imports to persist the XP to the user's profile
 import { doc, setDoc, increment } from "firebase/firestore";
 import { db, auth } from "../firebase";
 
@@ -288,43 +286,47 @@ function Locator() {
     }
   };
 
+  // --- THE FIX: MILITARY-GRADE GPS POLLING ENGINE ---
   useEffect(() => {
     if (!navigator.geolocation) return;
 
-    let watchId;
     let intervalId;
 
-    const handleSuccess = (pos) => {
-      const coords = [pos.coords.latitude, pos.coords.longitude];
-      setUserLocation(coords);
-      if (!hasFetchedInitialData.current) {
-        getNearbyData(coords[0], coords[1]);
-        hasFetchedInitialData.current = true;
-      }
+    const pollHardwareGPS = () => {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const coords = [pos.coords.latitude, pos.coords.longitude];
+          
+          setUserLocation(prev => {
+            // Anti-Jitter Rule: Only update the map if the user physically moved more than 2 meters
+            if (!prev) return coords;
+            const dist = calculateDistance(prev[0], prev[1], coords[0], coords[1]);
+            return dist > 2 ? coords : prev;
+          });
+
+          if (!hasFetchedInitialData.current) {
+            getNearbyData(coords[0], coords[1]);
+            hasFetchedInitialData.current = true;
+          }
+        },
+        (err) => console.warn("Hardware GPS Warning:", err.message),
+        {
+          enableHighAccuracy: true,
+          timeout: 10000, 
+          // CRITICAL FIX: 0 forces the phone to bypass the browser's network cache and poll the physical satellites directly
+          maximumAge: 0 
+        }
+      );
     };
 
-    const handleError = (err) => console.warn("GPS Warning:", err.message);
+    // Force an immediate GPS lock when the component loads
+    pollHardwareGPS();
 
-    if (isCriticalPower) {
-      intervalId = setInterval(() => {
-        navigator.geolocation.getCurrentPosition(handleSuccess, handleError, {
-          enableHighAccuracy: false,
-          timeout: 15000, 
-          maximumAge: 10000
-        });
-      }, 10000);
-    } else {
-      watchId = navigator.geolocation.watchPosition(handleSuccess, handleError, { 
-        enableHighAccuracy: true, 
-        timeout: 40000, 
-        maximumAge: 15000 
-      });
-    }
+    // The aggressive background looping engine (Every 4 seconds)
+    const pollRate = isCriticalPower ? 15000 : 4000;
+    intervalId = setInterval(pollHardwareGPS, pollRate);
 
-    return () => {
-      if (intervalId) clearInterval(intervalId);
-      if (watchId) navigator.geolocation.clearWatch(watchId);
-    };
+    return () => clearInterval(intervalId);
   }, [isCriticalPower, getNearbyData]);
 
 
@@ -475,16 +477,13 @@ function Locator() {
     }
   }, [liveTargetDistance, missionSuccess]);
 
-  // THE XP INTEGRATION: This writes the XP to the profile permanently
   const handleCompleteMission = async () => {
-    // 1. Save to Offline Hardware Memory (So it works in Zero-G Mode)
     const currentLocalXP = parseInt(localStorage.getItem('cashspot_rep_points') || '0');
     localStorage.setItem('cashspot_rep_points', currentLocalXP + 100);
 
     const currentMissions = parseInt(localStorage.getItem('cashspot_missions_completed') || '0');
     localStorage.setItem('cashspot_missions_completed', currentMissions + 1);
 
-    // 2. Save to Online Cloud Database (If user is logged in)
     const currentUser = auth?.currentUser;
     if (currentUser) {
       try {
@@ -499,7 +498,6 @@ function Locator() {
       }
     }
 
-    // 3. Reset the UI and clear tracking targets
     setMissionSuccess(false);
     setRouteTarget(null);
     setCompassTarget(null);

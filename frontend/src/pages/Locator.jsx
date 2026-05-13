@@ -277,6 +277,15 @@ function Locator() {
         return [...uniqueNew, ...prev];
       });
 
+      // THE FIX: Instantly inject the downloaded ATMs onto the map so you get the "Complete Output"
+      const withDistance = data.map(loc => ({
+        ...loc,
+        distance: calculateDistance(userLocation[0], userLocation[1], loc.lat, loc.lng || loc.lon)
+      })).sort((a, b) => a.distance - b.distance);
+      
+      setLocations(withDistance);
+      setFiltered(withDistance);
+
       if (navigator.vibrate) navigator.vibrate([30, 50, 30]);
       showDialog("SECTOR SECURED", `${data.length} nodes downloaded for offline radar and pinned to your Home Screen.`);
     } catch (err) {
@@ -286,7 +295,7 @@ function Locator() {
     }
   };
 
-  // --- THE FIX: MOBILE-OPTIMIZED GPS ENGINE ---
+  // THE MOBILE GPS FIX
   useEffect(() => {
     if (!navigator.geolocation) return;
 
@@ -297,7 +306,6 @@ function Locator() {
         const coords = [pos.coords.latitude, pos.coords.longitude];
         
         setUserLocation(prev => {
-          // Anti-Jitter: Only update the UI if the user physically moved more than 2 meters
           if (!prev) return coords;
           const dist = calculateDistance(prev[0], prev[1], coords[0], coords[1]);
           return dist > 2 ? coords : prev;
@@ -311,8 +319,6 @@ function Locator() {
 
     const handleError = (err) => {
         console.warn("Mobile GPS Warning:", err.message);
-        // Mobile Hardware Fallback: If pure satellite lock fails or times out,
-        // instantly request a low-accuracy ping just to keep the tracking alive.
         if (err.code === err.TIMEOUT || err.code === err.POSITION_UNAVAILABLE) {
            navigator.geolocation.getCurrentPosition(
              (fallbackPos) => {
@@ -325,7 +331,6 @@ function Locator() {
     };
 
     if (isCriticalPower) {
-      // If battery is dying, fall back to the low-power interval
       intervalId = setInterval(() => {
         navigator.geolocation.getCurrentPosition(handleSuccess, handleError, {
           enableHighAccuracy: false,
@@ -334,11 +339,10 @@ function Locator() {
         });
       }, 10000);
     } else {
-      // Mobile OS blocks aggressive setInterval loops. We MUST use native watchPosition.
       watchId = navigator.geolocation.watchPosition(handleSuccess, handleError, {
         enableHighAccuracy: true,
-        timeout: 15000,       // Give mobile chips 15 seconds to find space satellites
-        maximumAge: 5000      // Allow 5-second old hardware data so the OS doesn't block us
+        timeout: 15000,       
+        maximumAge: 5000      
       });
     }
 

@@ -5,16 +5,22 @@ const cors = require("cors");
 const app = express();
 
 app.use(cors({
-  origin: ["https://cash-spot.vercel.app", "http://localhost:3000", "http://localhost:5173"], // Add your specific frontend URLs
+  origin: ["https://cash-spot.vercel.app", "http://localhost:3000", "http://localhost:5173"], 
   methods: ["GET", "POST", "PUT", "DELETE"],
   credentials: true
 }));
 
 app.use(express.json());
 
-mongoose.connect(
-  "mongodb+srv://tejassagar:Tejas123@tejas.txrnrwd.mongodb.net/atmLocator?retryWrites=true&w=majority&appName=Tejas"
-)
+// THE FIX: Using an Environment Variable instead of a hardcoded password
+const DB_URI = process.env.MONGO_URI;
+
+if (!DB_URI) {
+  console.error("🔴 FATAL ERROR: MONGO_URI is missing from environment variables.");
+  process.exit(1);
+}
+
+mongoose.connect(DB_URI)
 .then(() => console.log("🟢 MongoDB Connected Successfully"))
 .catch(err => console.error("🔴 MongoDB Connection Error:", err));
 

@@ -62,83 +62,65 @@ function MapView({ locations, userLocation, routeTarget, travelMode = "walking" 
     targetNameRef.current = routeTarget.bank || routeTarget.name || "Target Terminal";
   }
 
-  // HARD CLEANUP: Destroys routing memory if component unmounts
+  // THE FIX: Aggressive Nuke-and-Pave Routing Logic
   useEffect(() => {
-    return () => {
-      if (map && routingControlRef.current) {
-        try { map.removeControl(routingControlRef.current); } catch(e) {}
-        routingControlRef.current = null;
-      }
-    };
-  }, [map]);
-
-  // ROUTING ENGINE
-  useEffect(() => {
-    if (!map || !userLocation || !routeTarget) {
-      if (routingControlRef.current) {
-        try { map.removeControl(routingControlRef.current); } catch(e) {}
-        routingControlRef.current = null;
-      }
-      return;
+    // 1. Destroy any existing route memory instantly
+    if (routingControlRef.current) {
+      try { map.removeControl(routingControlRef.current); } catch(e) {}
+      routingControlRef.current = null;
     }
+
+    // 2. Scrape the DOM for any leftover route boxes and obliterate them
+    document.querySelectorAll('.leaflet-routing-container').forEach(el => el.remove());
+
+    if (!map || !userLocation || !routeTarget) return;
 
     const targetLat = routeTarget.lat;
     const targetLng = routeTarget.lng || routeTarget.lon;
     const startLatLng = L.latLng(userLocation[0], userLocation[1]);
     const endLatLng = L.latLng(targetLat, targetLng);
 
-    const injectCustomHeader = () => {
-      const container = document.querySelector('.leaflet-routing-container');
-      if (container) {
-        // 1. Inject our custom "Axis Bank" header at the very top
-        let header = container.querySelector('.custom-target-header');
-        if (!header) {
-          header = document.createElement('h1');
-          header.className = 'custom-target-header';
-          container.insertBefore(header, container.firstChild);
-        }
-        header.innerText = targetNameRef.current;
+    const isDark = document.documentElement.classList.contains('dark');
+    const lineColor = isDark ? '#ff0000' : '#cc0000';
 
-        // 2. THE FIX: Find and hide all of Leaflet's native street-name subheaders
-        // This removes the "multiples" illusion completely.
-        const nativeHeaders = container.querySelectorAll('.leaflet-routing-alt h2');
-        nativeHeaders.forEach(h2 => {
-           h2.style.display = 'none';
-        });
+    // 3. Build a completely fresh route tracking instance
+    routingControlRef.current = L.Routing.control({
+      waypoints: [startLatLng, endLatLng],
+      lineOptions: {
+        styles: [{ color: lineColor, weight: 6, opacity: 1, dashArray: '4, 14', lineCap: 'round' }] 
+      },
+      show: true, 
+      addWaypoints: false,
+      routeWhileDragging: false,
+      fitSelectedRoutes: true,
+      createMarker: () => null,
+      showAlternatives: false,
+      position: 'topright' 
+    }).addTo(map);
+
+    // 4. Safely inject your "Axis Bank" header once the path is fully loaded
+    routingControlRef.current.on('routeselected', () => {
+       setTimeout(() => {
+         const container = document.querySelector('.leaflet-routing-container');
+         if (container) {
+           let header = container.querySelector('.custom-target-header');
+           if (!header) {
+             header = document.createElement('h1');
+             header.className = 'custom-target-header';
+             container.insertBefore(header, container.firstChild);
+           }
+           header.innerText = targetNameRef.current;
+         }
+       }, 100); 
+    });
+
+    // Clean up when the component unmounts
+    return () => {
+      if (map && routingControlRef.current) {
+        try { map.removeControl(routingControlRef.current); } catch(e) {}
+        routingControlRef.current = null;
       }
     };
-
-    if (!routingControlRef.current) {
-      // THE FIX: Strict-Mode Failsafe. Rip out any orphaned black routing boxes from the DOM
-      const orphanedContainers = document.querySelectorAll('.leaflet-routing-container');
-      orphanedContainers.forEach(el => el.remove());
-
-      const isDark = document.documentElement.classList.contains('dark');
-      const lineColor = isDark ? '#ff0000' : '#cc0000';
-
-      routingControlRef.current = L.Routing.control({
-        waypoints: [startLatLng, endLatLng],
-        lineOptions: {
-          styles: [{ color: lineColor, weight: 6, opacity: 1, dashArray: '4, 14', lineCap: 'round' }] 
-        },
-        show: true, 
-        addWaypoints: false,
-        routeWhileDragging: false,
-        fitSelectedRoutes: true,
-        createMarker: () => null,
-        showAlternatives: false,
-        position: 'topright' 
-      }).addTo(map);
-
-      routingControlRef.current.on('routeselected', () => {
-         setTimeout(injectCustomHeader, 50);
-      });
-    } else {
-      // If it exists, gracefully update the path to the new ATM
-      routingControlRef.current.setWaypoints([startLatLng, endLatLng]);
-      setTimeout(injectCustomHeader, 50);
-    }
-
   }, [map, routeTarget, userLocation]);
 
   const handleLocateMe = () => {

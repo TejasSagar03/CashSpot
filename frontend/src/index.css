@@ -176,22 +176,8 @@ body {
 }
 .dark .custom-target-header { color: #fff; }
 
-.leaflet-routing-alt h2 {
-  font-family: 'ndot 45', sans-serif !important;
-  font-size: 13px !important; 
-  font-weight: 400 !important;
-  text-transform: uppercase !important;
-  letter-spacing: 0.15em !important;
-  margin-bottom: 20px !important;
-  border-bottom: 1px solid rgba(0,0,0,0.1) !important;
-  padding-bottom: 16px !important;
-  color: #6b7280 !important; 
-}
-.dark .leaflet-routing-alt h2 {
-  border-bottom-color: rgba(255,255,255,0.1) !important;
-  color: #9ca3af !important;
-}
-
+/* THE FIX: Completely hide the Leaflet street segment headers to prevent the multi-stop illusion */
+.leaflet-routing-alt h2 { display: none !important; }
 .leaflet-routing-alt h3 { display: none !important; } 
 
 .leaflet-routing-alt {
@@ -295,7 +281,7 @@ body {
 }
 
 /* ==========================================================
-   ZERO-G TACTICAL GRID FALLBACK (NEW)
+   ZERO-G TACTICAL GRID FALLBACK 
    ========================================================== */
 /* When offline map tiles fail to load, this turns the white screen into a radar grid */
 .leaflet-container, .mapboxgl-map {

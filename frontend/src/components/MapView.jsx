@@ -54,9 +54,7 @@ function MapView({ locations, userLocation, routeTarget, travelMode = "walking" 
   const routingControlRef = useRef(null);
   const targetNameRef = useRef("");
 
-  // Retrieve System Preferences from Settings
   const mapStyle = localStorage.getItem("cashspot_map_style") || "vector";
-
   const vectorUrl = "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png";
   const satelliteUrl = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
 
@@ -64,10 +62,21 @@ function MapView({ locations, userLocation, routeTarget, travelMode = "walking" 
     targetNameRef.current = routeTarget.bank || routeTarget.name || "Target Terminal";
   }
 
+  // HARD CLEANUP: Destroys routing memory if component unmounts
+  useEffect(() => {
+    return () => {
+      if (map && routingControlRef.current) {
+        try { map.removeControl(routingControlRef.current); } catch(e) {}
+        routingControlRef.current = null;
+      }
+    };
+  }, [map]);
+
+  // ROUTING ENGINE
   useEffect(() => {
     if (!map || !userLocation || !routeTarget) {
       if (routingControlRef.current) {
-        map.removeControl(routingControlRef.current);
+        try { map.removeControl(routingControlRef.current); } catch(e) {}
         routingControlRef.current = null;
       }
       return;
@@ -81,6 +90,7 @@ function MapView({ locations, userLocation, routeTarget, travelMode = "walking" 
     const injectCustomHeader = () => {
       const container = document.querySelector('.leaflet-routing-container');
       if (container) {
+        // 1. Inject our custom "Axis Bank" header at the very top
         let header = container.querySelector('.custom-target-header');
         if (!header) {
           header = document.createElement('h1');
@@ -88,10 +98,21 @@ function MapView({ locations, userLocation, routeTarget, travelMode = "walking" 
           container.insertBefore(header, container.firstChild);
         }
         header.innerText = targetNameRef.current;
+
+        // 2. THE FIX: Find and hide all of Leaflet's native street-name subheaders
+        // This removes the "multiples" illusion completely.
+        const nativeHeaders = container.querySelectorAll('.leaflet-routing-alt h2');
+        nativeHeaders.forEach(h2 => {
+           h2.style.display = 'none';
+        });
       }
     };
 
     if (!routingControlRef.current) {
+      // THE FIX: Strict-Mode Failsafe. Rip out any orphaned black routing boxes from the DOM
+      const orphanedContainers = document.querySelectorAll('.leaflet-routing-container');
+      orphanedContainers.forEach(el => el.remove());
+
       const isDark = document.documentElement.classList.contains('dark');
       const lineColor = isDark ? '#ff0000' : '#cc0000';
 
@@ -109,12 +130,14 @@ function MapView({ locations, userLocation, routeTarget, travelMode = "walking" 
         position: 'topright' 
       }).addTo(map);
 
-      routingControlRef.current.on('routeselected', injectCustomHeader);
+      routingControlRef.current.on('routeselected', () => {
+         setTimeout(injectCustomHeader, 50);
+      });
     } else {
+      // If it exists, gracefully update the path to the new ATM
       routingControlRef.current.setWaypoints([startLatLng, endLatLng]);
+      setTimeout(injectCustomHeader, 50);
     }
-
-    injectCustomHeader();
 
   }, [map, routeTarget, userLocation]);
 
@@ -129,7 +152,6 @@ function MapView({ locations, userLocation, routeTarget, travelMode = "walking" 
   return (
     <div className="relative h-full w-full z-0">
       
-      {/* Controls */}
       <div className="absolute bottom-6 right-6 z-[400] flex flex-col gap-3 pointer-events-auto">
         <button onClick={handleLocateMe} className="w-12 h-12 bg-white dark:bg-[#0a0a0a] text-black dark:text-white rounded-full shadow-lg flex items-center justify-center hover:scale-[0.96] transition-all border border-gray-200 dark:border-gray-800">
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 12m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v2M12 19v2M3 12h2M19 12h2" /></svg>
@@ -184,7 +206,6 @@ function MapView({ locations, userLocation, routeTarget, travelMode = "walking" 
                     </h3>
                     <p className="text-[10px] text-gray-500 font-mono uppercase tracking-widest mb-3">{loc.type || "ATM"}</p>
                     
-                    {/* OFFICIAL DEEP LINK INJECTED HERE */}
                     <a href={`https://www.google.com/maps/dir/?api=1&destination=$${loc.lat},${loc.lng || loc.lon}&travelmode=${travelMode}`} target="_blank" rel="noreferrer" className="w-full block">
                       <button className="w-full flex items-center justify-center gap-2 bg-black hover:bg-gray-800 text-white font-semibold px-4 py-2 rounded-xl transition-colors text-xs">
                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.243-4.243a8 8 0 1111.314 0zM15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>

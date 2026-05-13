@@ -58,34 +58,21 @@ function MapView({ locations, userLocation, routeTarget, travelMode = "walking" 
   const vectorUrl = "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png";
   const satelliteUrl = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
 
-  if (routeTarget) {
-    targetNameRef.current = routeTarget.bank || routeTarget.name || "Target Terminal";
-  }
-
-  // THE FIX: Aggressive Nuke-and-Pave Routing Logic
+  // ==========================================
+  // BRAIN 1: The Builder (Runs ONCE on load)
+  // ==========================================
   useEffect(() => {
-    // 1. Destroy any existing route memory instantly
-    if (routingControlRef.current) {
-      try { map.removeControl(routingControlRef.current); } catch(e) {}
-      routingControlRef.current = null;
-    }
+    if (!map) return;
 
-    // 2. Scrape the DOM for any leftover route boxes and obliterate them
+    // Nuke any ghost boxes left over by React Strict Mode
     document.querySelectorAll('.leaflet-routing-container').forEach(el => el.remove());
-
-    if (!map || !userLocation || !routeTarget) return;
-
-    const targetLat = routeTarget.lat;
-    const targetLng = routeTarget.lng || routeTarget.lon;
-    const startLatLng = L.latLng(userLocation[0], userLocation[1]);
-    const endLatLng = L.latLng(targetLat, targetLng);
 
     const isDark = document.documentElement.classList.contains('dark');
     const lineColor = isDark ? '#ff0000' : '#cc0000';
 
-    // 3. Build a completely fresh route tracking instance
-    routingControlRef.current = L.Routing.control({
-      waypoints: [startLatLng, endLatLng],
+    // Create the empty control box
+    const routingControl = L.Routing.control({
+      waypoints: [], 
       lineOptions: {
         styles: [{ color: lineColor, weight: 6, opacity: 1, dashArray: '4, 14', lineCap: 'round' }] 
       },
@@ -98,30 +85,57 @@ function MapView({ locations, userLocation, routeTarget, travelMode = "walking" 
       position: 'topright' 
     }).addTo(map);
 
-    // 4. Safely inject your "Axis Bank" header once the path is fully loaded
-    routingControlRef.current.on('routeselected', () => {
-       setTimeout(() => {
-         const container = document.querySelector('.leaflet-routing-container');
-         if (container) {
-           let header = container.querySelector('.custom-target-header');
-           if (!header) {
-             header = document.createElement('h1');
-             header.className = 'custom-target-header';
-             container.insertBefore(header, container.firstChild);
-           }
-           header.innerText = targetNameRef.current;
-         }
-       }, 100); 
+    routingControlRef.current = routingControl;
+
+    // When the route finishes calculating, inject the ATM Name header
+    routingControl.on('routeselected', () => {
+      setTimeout(() => {
+        const container = document.querySelector('.leaflet-routing-container');
+        if (container) {
+          container.style.display = 'block'; 
+          let header = container.querySelector('.custom-target-header');
+          if (!header) {
+            header = document.createElement('h1');
+            header.className = 'custom-target-header';
+            container.insertBefore(header, container.firstChild);
+          }
+          header.innerText = targetNameRef.current;
+        }
+      }, 50);
     });
 
-    // Clean up when the component unmounts
+    // Cleanup when the map is totally destroyed
     return () => {
-      if (map && routingControlRef.current) {
-        try { map.removeControl(routingControlRef.current); } catch(e) {}
-        routingControlRef.current = null;
-      }
+      try { map.removeControl(routingControl); } catch(e) {}
+      routingControlRef.current = null;
     };
-  }, [map, routeTarget, userLocation]);
+  }, [map]);
+
+
+  // ==========================================
+  // BRAIN 2: The Updater (Runs when you move)
+  // ==========================================
+  useEffect(() => {
+    // If the map isn't ready or we have no GPS, do nothing
+    if (!routingControlRef.current || !userLocation) return;
+
+    if (routeTarget) {
+      // Update the name ref so the header knows what to print
+      targetNameRef.current = routeTarget.bank || routeTarget.name || "Target Terminal";
+      
+      const startLatLng = L.latLng(userLocation[0], userLocation[1]);
+      const endLatLng = L.latLng(routeTarget.lat, routeTarget.lng || routeTarget.lon);
+      
+      // Quietly update the coordinates inside the EXISTING box
+      routingControlRef.current.setWaypoints([startLatLng, endLatLng]);
+    } else {
+      // If no target is selected, clear the waypoints and hide the box
+      routingControlRef.current.setWaypoints([]);
+      const container = document.querySelector('.leaflet-routing-container');
+      if (container) container.style.display = 'none';
+    }
+  }, [userLocation, routeTarget]);
+
 
   const handleLocateMe = () => {
     if (navigator.vibrate) navigator.vibrate(50);
@@ -188,6 +202,7 @@ function MapView({ locations, userLocation, routeTarget, travelMode = "walking" 
                     </h3>
                     <p className="text-[10px] text-gray-500 font-mono uppercase tracking-widest mb-3">{loc.type || "ATM"}</p>
                     
+                    {/* OFFICIAL DEEP LINK INJECTED HERE */}
                     <a href={`https://www.google.com/maps/dir/?api=1&destination=$${loc.lat},${loc.lng || loc.lon}&travelmode=${travelMode}`} target="_blank" rel="noreferrer" className="w-full block">
                       <button className="w-full flex items-center justify-center gap-2 bg-black hover:bg-gray-800 text-white font-semibold px-4 py-2 rounded-xl transition-colors text-xs">
                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.243-4.243a8 8 0 1111.314 0zM15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>

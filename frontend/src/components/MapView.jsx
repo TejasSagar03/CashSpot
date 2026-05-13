@@ -53,8 +53,11 @@ function MapView({ locations, userLocation, routeTarget, travelMode = "walking" 
   const [map, setMap] = useState(null);
   const routingControlRef = useRef(null);
   const targetNameRef = useRef("");
+  const lastRoutedPosition = useRef(null); // THE FIX: Memory bank for GPS Drift
 
+  // Retrieve System Preferences from Settings
   const mapStyle = localStorage.getItem("cashspot_map_style") || "vector";
+
   const vectorUrl = "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png";
   const satelliteUrl = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
 
@@ -116,20 +119,44 @@ function MapView({ locations, userLocation, routeTarget, travelMode = "walking" 
   // BRAIN 2: The Updater (Runs when you move)
   // ==========================================
   useEffect(() => {
-    // If the map isn't ready or we have no GPS, do nothing
     if (!routingControlRef.current || !userLocation) return;
 
     if (routeTarget) {
-      // Update the name ref so the header knows what to print
-      targetNameRef.current = routeTarget.bank || routeTarget.name || "Target Terminal";
-      
       const startLatLng = L.latLng(userLocation[0], userLocation[1]);
       const endLatLng = L.latLng(routeTarget.lat, routeTarget.lng || routeTarget.lon);
-      
-      // Quietly update the coordinates inside the EXISTING box
-      routingControlRef.current.setWaypoints([startLatLng, endLatLng]);
+
+      // THE FIX: Anti-Spam Lock
+      // Prevents the app from duplicating routes when your indoor GPS drifts.
+      let shouldUpdateRoute = true;
+
+      if (lastRoutedPosition.current) {
+        const { start, end } = lastRoutedPosition.current;
+        const movedDistance = startLatLng.distanceTo(start); // Leaflet calculates this in meters
+        const isSameTarget = endLatLng.distanceTo(end) < 1;
+
+        // If you are tracking the same ATM, and you haven't physically walked more than 15 meters, IGNORE the update
+        if (isSameTarget && movedDistance < 15) {
+          shouldUpdateRoute = false;
+        }
+      }
+
+      if (shouldUpdateRoute) {
+        targetNameRef.current = routeTarget.bank || routeTarget.name || "Target Terminal";
+        lastRoutedPosition.current = { start: startLatLng, end: endLatLng };
+
+        // DOM FAILSAFE: Manually rip out the old instruction tables before Leaflet draws the new ones
+        const container = document.querySelector('.leaflet-routing-container');
+        if (container) {
+          const oldInstructions = container.querySelectorAll('.leaflet-routing-alt');
+          oldInstructions.forEach(el => el.remove());
+        }
+
+        // Quietly update the coordinates inside the EXISTING box
+        routingControlRef.current.setWaypoints([startLatLng, endLatLng]);
+      }
     } else {
-      // If no target is selected, clear the waypoints and hide the box
+      // If no target is selected, clear the waypoints, reset memory, and hide the box
+      lastRoutedPosition.current = null;
       routingControlRef.current.setWaypoints([]);
       const container = document.querySelector('.leaflet-routing-container');
       if (container) container.style.display = 'none';
@@ -148,6 +175,7 @@ function MapView({ locations, userLocation, routeTarget, travelMode = "walking" 
   return (
     <div className="relative h-full w-full z-0">
       
+      {/* Controls */}
       <div className="absolute bottom-6 right-6 z-[400] flex flex-col gap-3 pointer-events-auto">
         <button onClick={handleLocateMe} className="w-12 h-12 bg-white dark:bg-[#0a0a0a] text-black dark:text-white rounded-full shadow-lg flex items-center justify-center hover:scale-[0.96] transition-all border border-gray-200 dark:border-gray-800">
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 12m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v2M12 19v2M3 12h2M19 12h2" /></svg>

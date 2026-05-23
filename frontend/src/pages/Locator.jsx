@@ -32,6 +32,9 @@ function Locator() {
   const [isDesktop, setIsDesktop] = useState(true); 
   const [shareState, setShareState] = useState("HIDDEN"); 
 
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [pendingTarget, setPendingTarget] = useState(null);
+
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
 
   const [sysDialog, setSysDialog] = useState({ show: false, title: '', message: '', isError: false });
@@ -384,98 +387,84 @@ function Locator() {
     if (result.length > 0) lastActiveTarget.current = result[0];
   }, [debouncedSearch, activeFilter, locations, userLocation]);
 
+// Add these two states at the top of your Locator.jsx file:
+  // const [isSelectionMode, setIsSelectionMode] = useState(false);
+  // const [pendingTarget, setPendingTarget] = useState(null);
+
   useEffect(() => {
     if (!voiceAction || !('speechSynthesis' in window)) return;
 
-    const { filtered: currentFiltered, locations: currentLocations, googleMode: currentGoogleMode, savedLocations: currentSaved } = stateRef.current;
+    const timer = setTimeout(() => {
+      const { filtered: currentFiltered, locations: currentLocations } = stateRef.current;
+      const rawText = (typeof voiceAction === 'string' ? voiceAction : (voiceAction.text || "")).toLowerCase();
 
-    const rawText = typeof voiceAction === 'string' ? voiceAction.toLowerCase() : (voiceAction.text || "").toLowerCase();
-    let intent = typeof voiceAction === 'object' ? { ...voiceAction } : {};
+      // 1. Check if we are in "Selection Mode" (Waiting for Yes/Compass/Route)
+      if (isSelectionMode && pendingTarget) {
+        window.speechSynthesis.cancel();
+        const msg = new SpeechSynthesisUtterance();
 
-    if (rawText) {
-        if (rawText.includes("google maps") || rawText.includes("maps") || rawText.includes("map")) intent.isGoogleMaps = true;
-        if (rawText.match(/\b(pin|pen|ping|save|safe|bookmark)\b/)) intent.isPin = true;
-        if (rawText.match(/\b(filter|search|show|find)\b/)) intent.isFilter = true;
-        if (rawText.match(/\b(compass|guide)\b/)) intent.isCompass = true;
-        if (rawText.match(/\b(route|root|navigate|directions|direct)\b/)) intent.isRoute = true;
+        if (/compass|guide|radar|corpus|campus|command|compost/.test(rawText)) {
+          setCompassTarget(pendingTarget); setRouteTarget(null); setIsMinimized(true);
+          msg.text = `Engaging compass for ${pendingTarget.bank || pendingTarget.name}.`;
+        } else if (/route|root|navigate|directions|direct|road|routing|routes/.test(rawText)) {
+          setRouteTarget(pendingTarget); setCompassTarget(null); setIsMinimized(true);
+          msg.text = `Mapping route to ${pendingTarget.bank || pendingTarget.name}.`;
+        } else {
+          msg.text = "I didn't understand. Please say 'Compass' or 'Route'.";
+        }
+        window.speechSynthesis.speak(msg);
+        setIsSelectionMode(false);
+        setPendingTarget(null);
+        setVoiceAction(null);
+        return;
+      }
 
-        const knownBanks = [
-          "union bank of india", "federal bank", "sbi", "hdfc", "axis", 
-          "icici", "union", "canara", "kotak", "atm", "bank"
-        ];
-        intent.targetBank = knownBanks.find(b => rawText.includes(b));
-    }
+      // 2. Standard Intent Detection
+      const intent = {
+        isCompass: /compass|guide|radar|corpus|campus|command|compost|compasses/.test(rawText),
+        isRoute: /route|root|navigate|directions|direct|road|routing|routes/.test(rawText),
+        isMaps: /google maps|maps|map|gmaps/.test(rawText),
+        isPin: /pin|pen|ping|save|safe|bookmark/.test(rawText)
+      };
 
-    setVoiceAction(null);
-    window.speechSynthesis.cancel(); 
+      const knownBanks = ["union bank", "federal bank", "sbi", "hdfc", "axis", "icici", "canara", "kotak"];
+      const targetBankName = knownBanks.find(bank => rawText.includes(bank.split(' ')[0]));
+      let target = targetBankName 
+        ? currentLocations.find(loc => (loc.bank || loc.name || "").toLowerCase().includes(targetBankName.split(' ')[0]))
+        : (lastActiveTarget.current || currentFiltered[0]);
 
-    const msg = new SpeechSynthesisUtterance();
-    msg.rate = 1.0;
+      // 3. Execution
+      window.speechSynthesis.cancel();
+      const msg = new SpeechSynthesisUtterance();
 
-    let target = lastActiveTarget.current;
-    if (intent.targetBank) {
-       target = currentLocations.find(loc => (loc.bank || loc.name || "").toLowerCase().includes(intent.targetBank)) || target;
-    }
-    if (!target && currentFiltered.length > 0) target = currentFiltered[0];
-
-    const bankName = target ? (target.bank || target.name || "the location") : "the branch";
-
-    if (intent.isCompass) {
-       if (target) {
+      if (target) {
+        if (intent.isCompass) {
           setCompassTarget(target); setRouteTarget(null); setIsMinimized(true);
-          msg.text = speakCasually('compass', { bank: bankName }) + " " + speakCasually('followUp');
-       } else {
-          msg.text = speakCasually('nothing');
-       }
-    }
-    else if (intent.isRoute) {
-       if (target) {
+          // Uses your function:
+          msg.text = speakCasually('compass', { bank: target.bank || target.name });
+        } else if (intent.isRoute) {
           setRouteTarget(target); setCompassTarget(null); setIsMinimized(true);
-          msg.text = speakCasually('route', { bank: bankName }) + " " + speakCasually('followUp');
-       } else {
-          msg.text = speakCasually('nothing');
-       }
-    }
-    else if (intent.isGoogleMaps) {
-       if (target) {
-          msg.text = `Opening ${bankName} in Google Maps.`;
-          const lat = target.lat;
-          const lng = target.lng || target.lon;
-          setTimeout(() => {
-              window.location.href = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=${currentGoogleMode}`;
-          }, 1000); 
-       } else {
-          msg.text = speakCasually('nothing');
-       }
-    }
-    else if (intent.isPin) {
-       if (target) {
-          const isAlreadySaved = currentSaved.some(s => s.id === target.id);
-          if (!isAlreadySaved) toggleSaveLocation(target);
-          setIsMinimized(true); 
-          msg.text = `Pinned ${bankName} to your hardware memory.`;
-       } else {
-          msg.text = speakCasually('nothing');
-       }
-    }
-    else if (intent.isFilter) {
-       if (intent.targetBank) {
-          setSearch(intent.targetBank); 
-          setIsMinimized(false); 
-          msg.text = `Filtering radar for ${intent.targetBank}.`;
-       } else {
-          msg.text = "Which bank should I filter?";
-       }
-    }
-    else {
-       msg.text = speakCasually('found', { count: currentFiltered.length }) + " " + speakCasually('followUp');
-    }
+          // Uses your function:
+          msg.text = speakCasually('route', { bank: target.bank || target.name });
+        } else if (intent.isMaps) {
+          window.location.href = `https://www.google.com/maps/dir/?api=1&destination=$$${target.lat},${target.lng || target.lon}`;
+          msg.text = `Opening maps for ${target.bank || target.name}.`;
+        } else {
+          setPendingTarget(target);
+          setIsSelectionMode(true);
+          // Uses your function for variety:
+          msg.text = `Found ${target.bank || target.name}. Should I open the compass or route?`;
+        }
+      } else {
+        // Uses your function:
+        msg.text = speakCasually('nothing');
+      }
+      window.speechSynthesis.speak(msg);
+      setVoiceAction(null);
+    }, 350);
 
-    msg.onend = () => { setIsListeningForFollowUp(true); };
-
-    setTimeout(() => { window.speechSynthesis.speak(msg); }, 300);
-
-  }, [voiceAction, toggleSaveLocation]); 
+    return () => clearTimeout(timer);
+  }, [voiceAction, isSelectionMode, pendingTarget]);
 
   const mapLocations = useMemo(() => {
     const allIds = new Set(filtered.map(f => f.id));

@@ -285,3 +285,21 @@ body {
 
 .leaflet-tile-loaded { display: block !important; }
 .leaflet-tile { color: transparent !important; }
+
+/* FORCE TACTICAL PANEL VISIBILITY */
+.leaflet-routing-container {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+/* Ensure instruction list isn't hidden by empty route states */
+.leaflet-routing-alt {
+  display: block !important;
+}
+
+/* Specifically for offline mode visuals */
+.leaflet-routing-container.offline-mode {
+  border: 1px solid #cc0000 !important;
+}

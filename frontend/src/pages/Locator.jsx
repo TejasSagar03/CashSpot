@@ -524,6 +524,27 @@ function Locator() {
     setCompassTarget(null);
   };
 
+// --- THE FIX: OFFLINE ROUTING INTERCEPTOR ---
+  const handleRoutingRequest = useCallback((loc) => {
+    if (isOffline) {
+      // If offline, block the route calculation and force Compass mode
+      if (navigator.vibrate) navigator.vibrate([50, 100, 50]);
+      showDialog(
+        "UPLINK SEVERED", 
+        "Turn-by-turn road navigation requires a network connection. Engaging direct-line hardware compass instead.", 
+        true
+      );
+      setCompassTarget(loc);
+      setRouteTarget(null);
+      setIsMinimized(true);
+    } else {
+      // If online, proceed with normal routing
+      setRouteTarget(loc);
+      setCompassTarget(null);
+      setIsMinimized(true);
+    }
+  }, [isOffline, showDialog]);
+
   return (
     <AnimatedPage>
       <div className="relative h-[100dvh] w-full overflow-hidden bg-[#f8fafc] dark:bg-[#050505] font-sans transition-colors duration-500">
@@ -729,7 +750,7 @@ function Locator() {
                       <div className="flex flex-col gap-3">
                         {savedLocations.map(loc => (
                           <div key={`saved-${loc.id}`} className="relative group">
-                            <ATMCard loc={loc} travelMode={googleMode} setRouteTarget={(l) => { setRouteTarget(l); setCompassTarget(null); setIsMinimized(true); }} setCompassTarget={(l) => { setCompassTarget(l); setRouteTarget(null); setIsMinimized(true); }}/>
+                            <ATMCard loc={loc} travelMode={googleMode} setRouteTarget={() => handleRoutingRequest(loc)} setCompassTarget={(l) => { setCompassTarget(l); setRouteTarget(null); setIsMinimized(true); }}/>
                             <button onClick={() => toggleSaveLocation(loc)} className="absolute -top-2 -right-2 w-8 h-8 flex items-center justify-center bg-yellow-400 hover:bg-red-500 text-black hover:text-white rounded-full shadow-lg z-10 transition-colors cursor-pointer">
                                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
                             </button>
@@ -746,7 +767,7 @@ function Locator() {
                   ) : (
                     filtered.map(loc => (
                       <motion.div layout initial={{ opacity: 0, y: 20, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }} transition={{ type: "spring", stiffness: 350, damping: 25 }} key={loc.id} className="shrink-0 mb-3 relative group">
-                        <ATMCard loc={loc} travelMode={googleMode} setRouteTarget={(l) => { setRouteTarget(l); setCompassTarget(null); setIsMinimized(true); }} setCompassTarget={(l) => { setCompassTarget(l); setRouteTarget(null); setIsMinimized(true); }}/>
+                        <ATMCard loc={loc} travelMode={googleMode} setRouteTarget={() => handleRoutingRequest(loc)} setCompassTarget={(l) => { setCompassTarget(l); setRouteTarget(null); setIsMinimized(true); }}/>
                         <button onClick={() => toggleSaveLocation(loc)} className={`absolute -top-2 -right-2 w-8 h-8 flex items-center justify-center rounded-full shadow-lg z-10 transition-colors cursor-pointer ${isSaved(loc.id) ? 'bg-yellow-400 text-black' : 'bg-white dark:bg-gray-800 text-gray-400 hover:text-black dark:hover:text-white border border-gray-200 dark:border-gray-700'}`}>
                           <svg className="w-4 h-4" fill={isSaved(loc.id) ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={isSaved(loc.id) ? 1 : 2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" /></svg>
                         </button>

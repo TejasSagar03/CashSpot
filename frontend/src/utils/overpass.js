@@ -2,10 +2,16 @@ export async function fetchATMs(lat, lon) {
   const savedRadiusKm = Number(localStorage.getItem("cashspot_radius")) || 6;
   const searchRadiusMeters = savedRadiusKm * 1000;
 
+  // AUTO-DETECT BACKEND URL
+  // If not on production, default to local. 
+  const BACKEND_URL = process.env.NODE_ENV === 'production' 
+    ? "https://cashspot-backend.onrender.com" 
+    : "http://localhost:5000";
+
   try {
-    console.log(`📡 Sending coordinates to secure backend: ${lat}, ${lon}`); 
+    console.log(`📡 Sending coordinates to: ${BACKEND_URL}`); 
     
-    const response = await fetch('/api/atms', {
+    const response = await fetch(`${BACKEND_URL}/api/atms`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ lat, lon, radius: searchRadiusMeters })
@@ -13,7 +19,6 @@ export async function fetchATMs(lat, lon) {
     
     const data = await response.json();
 
-    // If the backend returned an error, throw it so we can read it in the console
     if (!response.ok) {
        throw new Error(`BACKEND STATUS: ${response.status} | ERROR: ${data.error} | DETAILS: ${data.details}`);
     }

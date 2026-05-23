@@ -61,7 +61,6 @@ function MapView({ locations, userLocation, routeTarget, travelMode = "walking" 
 
   // ==========================================
   // BRAIN 1: The Anti-Drift Engine
-  // Determines WHEN the route should actually update
   // ==========================================
   useEffect(() => {
     if (!userLocation || !routeTarget) {
@@ -78,10 +77,7 @@ function MapView({ locations, userLocation, routeTarget, travelMode = "walking" 
       const movedDistance = startLatLng.distanceTo(start); 
       const isSameTarget = endLatLng.distanceTo(end) < 1;
 
-      // If tracking the same ATM and you haven't walked more than 15 meters, IGNORE the GPS drift
-      if (isSameTarget && movedDistance < 15) {
-        return; 
-      }
+      if (isSameTarget && movedDistance < 15) return; 
     }
 
     lastRoutedPosition.current = { start: startLatLng, end: endLatLng };
@@ -90,21 +86,48 @@ function MapView({ locations, userLocation, routeTarget, travelMode = "walking" 
   }, [userLocation, routeTarget]);
 
   // ==========================================
-  // BRAIN 2: The Nuke & Pave Engine
-  // Destroys the old route completely before drawing the new one
+  // BRAIN 2: The Nuke & Pave Engine (With Offline Hack)
   // ==========================================
   useEffect(() => {
-    // 1. Clear any orphaned ghost boxes from the screen
     document.querySelectorAll('.leaflet-routing-container').forEach(el => el.remove());
 
     if (!map || !routeWaypoints) return;
 
     const isDark = document.documentElement.classList.contains('dark');
     const lineColor = isDark ? '#ff0000' : '#cc0000';
+    const isOffline = !navigator.onLine;
 
-    // 2. Build a brand new routing instance from scratch
+    // THE FIX: Custom router that fakes the connection when offline
+const zeroGRouter = {
+  route: function(waypoints, callback) {
+    if (!waypoints || waypoints.length < 2) return;
+    
+    const start = waypoints[0].latLng;
+    const end = waypoints[waypoints.length - 1].latLng;
+    const dist = start.distanceTo(end);
+    
+    const mockRoute = {
+      name: "ZERO-G UPLINK",
+      summary: { totalDistance: dist, totalTime: dist / 1.4 },
+      coordinates: [start, end],
+      instructions: [
+        { type: 'Straight', text: 'UPLINK SEVERED. FOLLOW HARDWARE VECTOR.', distance: dist, index: 0 },
+        { type: 'DestinationReached', text: 'TARGET ACQUIRED.', distance: 0, index: 1 }
+      ],
+      waypoints: waypoints
+    };
+    
+    // Force call back to trigger the UI render
+    callback(null, [mockRoute]);
+  }
+};
+
     const routingControl = L.Routing.control({
       waypoints: routeWaypoints,
+      // If offline, use our fake router. If online, use the real OSRM server.
+      router: isOffline ? zeroGRouter : L.Routing.osrmv1({
+        serviceUrl: 'https://router.project-osrm.org/route/v1'
+      }),
       lineOptions: {
         styles: [{ color: lineColor, weight: 6, opacity: 1, dashArray: '4, 14', lineCap: 'round' }] 
       },
@@ -117,7 +140,6 @@ function MapView({ locations, userLocation, routeTarget, travelMode = "walking" 
       position: 'topright' 
     }).addTo(map);
 
-    // 3. Inject the clean header
     routingControl.on('routeselected', () => {
       setTimeout(() => {
         const container = document.querySelector('.leaflet-routing-container');
@@ -134,8 +156,6 @@ function MapView({ locations, userLocation, routeTarget, travelMode = "walking" 
       }, 50);
     });
 
-    // 4. THE ABSOLUTE GUARANTEE: If waypoints change or component unmounts, 
-    // utterly destroy this specific route instance so it cannot stack.
     return () => {
       try { map.removeControl(routingControl); } catch(e) {}
     };

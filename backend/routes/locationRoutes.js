@@ -12,6 +12,8 @@ router.get("/:osm_id", async (req, res) => {
       res.json({ status: 'Operational', reports: 0 });
     }
   } catch (err) {
+    // ADD THIS LINE: This forces Render to print the exact crash details!
+    console.error("🔴 CRASH in GET /:osm_id --->", err); 
     res.status(500).json({ message: err.message });
   }
 });

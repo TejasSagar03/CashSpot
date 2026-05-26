@@ -10,12 +10,10 @@
   font-display: swap;
 }
 
-/* stylelint-disable-next-line */
-@tailwind base;
-/* stylelint-disable-next-line */
-@tailwind components;
-/* stylelint-disable-next-line */
-@tailwind utilities;
+/* Use standard imports to avoid unknown at-rule warnings in some linters */
+@import "tailwindcss/base";
+@import "tailwindcss/components";
+@import "tailwindcss/utilities";
 
 @layer base {
   html, body {
@@ -302,4 +300,11 @@ body {
 /* Specifically for offline mode visuals */
 .leaflet-routing-container.offline-mode {
   border: 1px solid #cc0000 !important;
+}
+
+/* ==========================================================
+   CUSTOM TYPOGRAPHY UTILITIES
+   ========================================================== */
+.font-dot {
+  font-family: 'ndot 45', monospace !important;
 }

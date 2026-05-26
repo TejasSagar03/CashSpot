@@ -15,7 +15,7 @@ import { useBattery } from "../hooks/useBattery";
 import { doc, setDoc, increment } from "firebase/firestore";
 import { db, auth } from "../firebase";
 
-function Locator() {
+function Locator({ triggerToast, globalToastVisible }) {
   const [locations, setLocations] = useState([]);
   const [filtered, setFiltered] = useState([]);
   const [userLocation, setUserLocation] = useState(null);
@@ -152,15 +152,10 @@ function Locator() {
 
   const isSaved = useCallback((id) => savedLocations.some(s => s.id === id), [savedLocations]);
 
+// Telemetry processing: Hybrid UI & Lock Screen Handler
   useEffect(() => {
-    if ('Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission();
-    }
-
     const updateNotification = async () => {
-      if (routeTarget && userLocation && 'serviceWorker' in navigator) {
-        if (!('Notification' in window) || Notification.permission !== 'granted') return; 
-
+      if (routeTarget && userLocation) {
         const rawDistance = calculateDistance(
           userLocation[0], userLocation[1], 
           routeTarget.lat, routeTarget.lng || routeTarget.lon
@@ -169,25 +164,88 @@ function Locator() {
         const unit = localStorage.getItem("cashspot_unit") === "imperial" ? "MI" : "KM";
         const bankName = (routeTarget.bank || routeTarget.name || "ATM").toUpperCase();
 
-        const registration = await navigator.serviceWorker.ready;
-        registration.showNotification(`[ NAV_SYSTEM ]`, {
-          body: `LOCKED ON: ${bankName}\nDISTANCE: ${safeDistance.toFixed(1)} ${unit}`,
-          icon: '/favicon.svg', 
-          badge: '/favicon.svg',
-          tag: 'cashspot-nav-tracker', 
-          renotify: false, 
-          silent: true, 
-          requireInteraction: true 
-        });
-      } else if (!routeTarget && 'serviceWorker' in navigator) {
-        const registration = await navigator.serviceWorker.ready;
-        const notifications = await registration.getNotifications({ tag: 'cashspot-nav-tracker' });
-        notifications.forEach(notification => notification.close());
+        // 1. APP IS OPEN: Show Custom Dot-Matrix UI, kill lock screen notifications
+        if (document.visibilityState === 'visible') {
+          if (triggerToast) triggerToast(bankName, `${safeDistance.toFixed(1)} ${unit}`);
+          
+          if ('serviceWorker' in navigator) {
+            const registration = await navigator.serviceWorker.ready;
+            const notifications = await registration.getNotifications({ tag: 'cashspot-nav-tracker' });
+            notifications.forEach(n => n.close());
+          }
+        } 
+        // 2. APP IS BACKGROUNDED/LOCKED: Hide custom UI, show native lock screen notification
+        else {
+          if (triggerToast) triggerToast(null);
+
+          if ('serviceWorker' in navigator && Notification.permission === 'granted') {
+            const registration = await navigator.serviceWorker.ready;
+            registration.showNotification(`Tracking: ${bankName}`, {
+              body: `Distance remaining: ${safeDistance.toFixed(1)} ${unit}`,
+              icon: '/favicon.svg', 
+              badge: '/favicon.svg',
+              tag: 'cashspot-nav-tracker', 
+              renotify: true, // Updates the existing notification silently
+              silent: true, 
+              requireInteraction: false 
+            });
+          }
+        }
+      } else {
+        // Clear everything when tracking stops
+        if (triggerToast) triggerToast(null);
+        if ('serviceWorker' in navigator) {
+          const registration = await navigator.serviceWorker.ready;
+          const notifications = await registration.getNotifications({ tag: 'cashspot-nav-tracker' });
+          notifications.forEach(n => n.close());
+        }
       }
     };
 
     updateNotification();
+
+    // Re-evaluate when user locks/unlocks the phone
+    document.addEventListener("visibilitychange", updateNotification);
+    return () => document.removeEventListener("visibilitychange", updateNotification);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userLocation, routeTarget]);
+
+  // Add this state near your other states at the top of Locator.jsx
+const [wakeLock, setWakeLock] = useState(null);
+
+// Add this useEffect to handle keeping the screen awake during active navigation
+useEffect(() => {
+  const requestWakeLock = async () => {
+    if ('wakeLock' in navigator && routeTarget) {
+      try {
+        const lock = await navigator.wakeLock.request('screen');
+        setWakeLock(lock);
+        console.log("Wake Lock active: Screen will not sleep.");
+      } catch (err) {
+        console.warn("Wake Lock failed:", err);
+      }
+    }
+  };
+
+  const releaseWakeLock = async () => {
+    if (wakeLock !== null && !routeTarget) {
+      await wakeLock.release();
+      setWakeLock(null);
+      console.log("Wake Lock released: Screen can sleep.");
+    }
+  };
+
+  if (routeTarget) {
+    requestWakeLock();
+  } else {
+    releaseWakeLock();
+  }
+
+  // Safety cleanup: release if component unmounts
+  return () => {
+    if (wakeLock) wakeLock.release();
+  };
+}, [routeTarget]);
 
   useEffect(() => {
     const timer = setTimeout(() => { setDebouncedSearch(search); }, 300); 
@@ -353,7 +411,6 @@ function Locator() {
     };
   }, [isCriticalPower, getNearbyData]);
 
-
   useEffect(() => {
     if (!userLocation || locations.length === 0) return;
     
@@ -387,10 +444,6 @@ function Locator() {
     if (result.length > 0) lastActiveTarget.current = result[0];
   }, [debouncedSearch, activeFilter, locations, userLocation]);
 
-// Add these two states at the top of your Locator.jsx file:
-  // const [isSelectionMode, setIsSelectionMode] = useState(false);
-  // const [pendingTarget, setPendingTarget] = useState(null);
-
   useEffect(() => {
     if (!voiceAction || !('speechSynthesis' in window)) return;
 
@@ -398,7 +451,6 @@ function Locator() {
       const { filtered: currentFiltered, locations: currentLocations } = stateRef.current;
       const rawText = (typeof voiceAction === 'string' ? voiceAction : (voiceAction.text || "")).toLowerCase();
 
-      // 1. Check if we are in "Selection Mode" (Waiting for Yes/Compass/Route)
       if (isSelectionMode && pendingTarget) {
         window.speechSynthesis.cancel();
         const msg = new SpeechSynthesisUtterance();
@@ -419,7 +471,6 @@ function Locator() {
         return;
       }
 
-      // 2. Standard Intent Detection
       const intent = {
         isCompass: /compass|guide|radar|corpus|campus|command|compost|compasses/.test(rawText),
         isRoute: /route|root|navigate|directions|direct|road|routing|routes/.test(rawText),
@@ -433,18 +484,15 @@ function Locator() {
         ? currentLocations.find(loc => (loc.bank || loc.name || "").toLowerCase().includes(targetBankName.split(' ')[0]))
         : (lastActiveTarget.current || currentFiltered[0]);
 
-      // 3. Execution
       window.speechSynthesis.cancel();
       const msg = new SpeechSynthesisUtterance();
 
       if (target) {
         if (intent.isCompass) {
           setCompassTarget(target); setRouteTarget(null); setIsMinimized(true);
-          // Uses your function:
           msg.text = speakCasually('compass', { bank: target.bank || target.name });
         } else if (intent.isRoute) {
           setRouteTarget(target); setCompassTarget(null); setIsMinimized(true);
-          // Uses your function:
           msg.text = speakCasually('route', { bank: target.bank || target.name });
         } else if (intent.isMaps) {
           window.location.href = `https://www.google.com/maps/dir/?api=1&destination=$$${target.lat},${target.lng || target.lon}`;
@@ -452,11 +500,9 @@ function Locator() {
         } else {
           setPendingTarget(target);
           setIsSelectionMode(true);
-          // Uses your function for variety:
           msg.text = `Found ${target.bank || target.name}. Should I open the compass or route?`;
         }
       } else {
-        // Uses your function:
         msg.text = speakCasually('nothing');
       }
       window.speechSynthesis.speak(msg);
@@ -479,7 +525,6 @@ function Locator() {
 
   useProximityHaptics(liveTargetDistance);
 
-  // THE FIX: 0.015 KM = 15 Meters
   useEffect(() => {
     if (liveTargetDistance !== null && liveTargetDistance < 0.015 && !missionSuccess) {
       if (navigator.vibrate) navigator.vibrate([100, 50, 100, 50, 200]);
@@ -513,10 +558,8 @@ function Locator() {
     setCompassTarget(null);
   };
 
-// --- THE FIX: OFFLINE ROUTING INTERCEPTOR ---
   const handleRoutingRequest = useCallback((loc) => {
     if (isOffline) {
-      // If offline, block the route calculation and force Compass mode
       if (navigator.vibrate) navigator.vibrate([50, 100, 50]);
       showDialog(
         "UPLINK SEVERED", 
@@ -527,7 +570,6 @@ function Locator() {
       setRouteTarget(null);
       setIsMinimized(true);
     } else {
-      // If online, proceed with normal routing
       setRouteTarget(loc);
       setCompassTarget(null);
       setIsMinimized(true);
@@ -682,7 +724,6 @@ function Locator() {
             <h2 className="text-[1.1rem] font-bold text-black dark:text-white tracking-tight">Active Grid</h2>
             
             <div className="flex items-center gap-2">
-              
               {loading && <SchematicLoaderSVG className="w-5 h-5 mr-1" />}
               
               <button 
@@ -709,7 +750,6 @@ function Locator() {
                 </svg>
               </button>
             </div>
-            
           </div>
             
           <motion.div layoutScroll onPointerDown={(e) => e.stopPropagation()} className="flex-1 overflow-y-auto px-4 pb-8 custom-scrollbar">
@@ -786,10 +826,8 @@ function Locator() {
               )}
             </p>
           </div>
-          
         </motion.div>
 
-        {/* --- UNIFIED SYSTEM DIALOG OVERLAY --- */}
         <AnimatePresence>
           {sysDialog.show && (
             <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
@@ -828,7 +866,6 @@ function Locator() {
           )}
         </AnimatePresence>
 
-        {/* --- MISSION SUCCESS OVERLAY --- */}
         <AnimatePresence>
           {missionSuccess && (
             <motion.div 
@@ -840,7 +877,6 @@ function Locator() {
                 transition={{ type: "spring", stiffness: 300, damping: 25 }}
                 className="w-full max-w-sm flex flex-col items-center text-center relative"
               >
-                {/* Tactical Checkmark */}
                 <div className="w-32 h-32 rounded-full border border-green-500/30 flex items-center justify-center mb-8 relative">
                    <div className="absolute inset-0 rounded-full border border-green-500/20 animate-ping"></div>
                    <div className="w-24 h-24 rounded-full bg-green-500 shadow-[0_0_50px_rgba(34,197,94,0.4)] flex items-center justify-center text-[#0a0a0a]">
@@ -848,7 +884,6 @@ function Locator() {
                    </div>
                 </div>
 
-                {/* Glitch Typography */}
                 <div className="mb-8">
                    <span style={{ fontFamily: "'ndot 45', sans-serif" }} className="text-3xl font-bold text-white uppercase tracking-[0.2em] block mb-2">Node Secured</span>
                    <span className="text-[10px] font-mono uppercase tracking-[0.3em] text-gray-400 block">
@@ -856,7 +891,6 @@ function Locator() {
                    </span>
                 </div>
 
-                {/* Tactical Stats Panel */}
                 <div className="w-full border border-gray-800 rounded-2xl p-6 bg-black mb-10 flex flex-col gap-4">
                   <div className="flex justify-between items-center border-b border-gray-800 pb-4">
                      <span className="text-[10px] uppercase tracking-widest text-gray-500 font-bold">Bounty Claimed</span>
@@ -868,7 +902,6 @@ function Locator() {
                   </div>
                 </div>
 
-                {/* The new save handler is hooked up here */}
                 <button 
                   onClick={handleCompleteMission}
                   className="w-full py-5 bg-white text-black font-black uppercase tracking-[0.2em] rounded-xl hover:scale-105 active:scale-95 transition-transform shadow-[0_0_30px_rgba(255,255,255,0.2)] cursor-pointer"

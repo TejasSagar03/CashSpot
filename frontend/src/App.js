@@ -12,7 +12,8 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Profile from "./pages/Profile";
 import Welcome from "./pages/Welcome";
-import SettingsModal from "./components/SettingsModal"; // Make sure path matches where you saved it
+import SettingsModal from "./components/SettingsModal";
+import SystemToast from "./components/SystemToast";
 
 // --- AUTH WRAPPER ---
 const ProtectedRoute = ({ user, loading, children }) => {
@@ -25,10 +26,10 @@ const ProtectedRoute = ({ user, loading, children }) => {
   return children;
 };
 
-// --- NAVIGATION (With Modal Integration) ---
+// --- NAVIGATION ---
 function Navigation({ toggleTheme, isDark, user }) {
   const location = useLocation();
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false); //
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false); 
   
   const triggerHaptic = () => { 
     if (typeof window !== "undefined" && navigator.vibrate) navigator.vibrate(15); 
@@ -63,7 +64,6 @@ function Navigation({ toggleTheme, isDark, user }) {
         </div>
       )}
 
-      {/* TOP-RIGHT CLUSTER */}
       {!["/login", "/signup"].includes(location.pathname) && (
         <div className="fixed top-6 right-6 z-[100] flex flex-col gap-3">
           {user && (
@@ -72,7 +72,6 @@ function Navigation({ toggleTheme, isDark, user }) {
             </Link>
           )}
           
-          {/* TACTICAL GEAR ICON -> TRIGGERS MODAL */}
           <button 
             onClick={() => { triggerHaptic(); setIsSettingsOpen(true); }} 
             className="w-12 h-12 bg-white dark:bg-[#0a0a0a] border border-gray-200 dark:border-white/10 rounded-full flex items-center justify-center shadow-lg hover:scale-105 active:scale-95 transition-transform cursor-pointer"
@@ -93,7 +92,6 @@ function Navigation({ toggleTheme, isDark, user }) {
         </div>
       )}
 
-      {/* THE MODAL[cite: 3] */}
       <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
     </>
   );
@@ -103,6 +101,17 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isDark, setIsDark] = useState(true);
+
+  // Global Navigation Telemetry State
+  const [toastData, setToastData] = useState({ visible: false, bank: "", dist: "" });
+
+  const triggerNavLock = (bankName, distance) => {
+    if (!bankName) {
+      setToastData({ visible: false, bank: "", dist: "" });
+    } else {
+      setToastData({ visible: true, bank: bankName, dist: distance });
+    }
+  };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -116,7 +125,17 @@ export default function App() {
     <Router>
       <div className={isDark ? "dark" : ""}>
         <div className="relative w-full min-h-[100dvh] bg-[#fdfdfd] dark:bg-black text-black dark:text-white transition-colors duration-500 overflow-hidden">
+          
           <Navigation toggleTheme={() => setIsDark(!isDark)} isDark={isDark} user={user} />
+          
+          {/* Integrated Minimalist Top Banner HUD */}
+          <SystemToast 
+            isVisible={toastData.visible} 
+            bankName={toastData.bank} 
+            distance={toastData.dist}
+            onClose={() => triggerNavLock(null)}
+          />
+
           <AnimatePresence mode="wait">
             <Routes>
               <Route path="/" element={user ? <Navigate to="/home" replace /> : <Navigate to="/login" replace />} />
@@ -125,7 +144,14 @@ export default function App() {
               
               <Route path="/home" element={<ProtectedRoute user={user} loading={loading}><Home /></ProtectedRoute>} />
               <Route path="/welcome" element={<ProtectedRoute user={user} loading={loading}><Welcome /></ProtectedRoute>} />
-              <Route path="/locator" element={<ProtectedRoute user={user} loading={loading}><Locator /></ProtectedRoute>} />
+              
+              {/* Passed trigger payload injection straight to context handler */}
+              <Route path="/locator" element={
+                <ProtectedRoute user={user} loading={loading}>
+                  <Locator triggerToast={triggerNavLock} globalToastVisible={toastData.visible} />
+                </ProtectedRoute>
+              } />
+              
               <Route path="/profile" element={<ProtectedRoute user={user} loading={loading}><Profile user={user} /></ProtectedRoute>} />
               <Route path="/about" element={<About />} />
             </Routes>

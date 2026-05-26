@@ -1,9 +1,6 @@
 export async function fetchATMs(lat, lon) {
   const savedRadiusKm = Number(localStorage.getItem("cashspot_radius")) || 6;
-  const searchRadiusMeters = savedRadiusKm * 1000;
-
-  // AUTO-DETECT BACKEND URL
-  // If not on production, default to local. 
+  const searchRadiusMeters = savedRadiusKm * 1000; 
   const BACKEND_URL = process.env.NODE_ENV === 'production' 
     ? "https://cashspot-backend.onrender.com" 
     : "http://localhost:5000";

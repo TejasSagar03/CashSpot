@@ -20,7 +20,11 @@ export default function Login() {
       await signInWithEmailAndPassword(auth, formData.email, formData.password);
       navigate("/home");
     } catch (err) {
-      setError(err.message.replace("Firebase: ", ""));
+      if (err.code === "auth/account-exists-with-different-credential") {
+        setError("This email is already registered with another sign-in method. Please use that method to log in.");
+      } else {
+        setError(err.message.replace("Firebase: ", ""));
+      }
     } finally {
       setIsLoading(false);
     }
@@ -31,7 +35,11 @@ export default function Login() {
       await signInWithPopup(auth, provider);
       navigate("/home");
     } catch (err) {
-      setError(err.message.replace("Firebase: ", ""));
+      if (err.code === "auth/account-exists-with-different-credential") {
+        setError("This email is already registered with another sign-in method. Please use that method to log in.");
+      } else {
+        setError(err.message.replace("Firebase: ", ""));
+      }
     }
   };
 

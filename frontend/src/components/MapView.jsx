@@ -190,9 +190,9 @@ const zeroGRouter = {
 
       <MapContainer center={currentCenter} zoom={13} zoomControl={false} className="h-full w-full absolute inset-0 z-0" ref={setMap}>
         <TileLayer 
-          url={mapStyle === 'satellite' ? satelliteUrl : vectorUrl} 
-          attribution={mapStyle === 'satellite' ? 'Tiles © Esri' : '© OpenStreetMap'} 
-        />
+  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" 
+  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' 
+/>
         
         <MapController center={currentCenter} zoom={routeTarget ? 16 : 14} />
 
